@@ -5,8 +5,10 @@ export type Theme = "dark" | "light" | "system";
 export interface AppConfig {
   /** Current theme */
   theme: Theme;
-  /** Selected relay URL */
+  /** Selected relay URL for reading */
   relayUrl: string;
+  /** Selected relay URLs for publishing scores */
+  publishingRelays?: string[];
 }
 
 export interface AppContextType {

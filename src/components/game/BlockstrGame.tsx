@@ -5,6 +5,7 @@ import { GameControls } from './GameControls';
 import { NextPiecePreview } from './NextPiecePreview';
 import { PaymentGate } from './PaymentGate';
 import { GameOverModal } from './GameOverModal';
+import { GameHeader } from '@/components/GameHeader';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useBitcoinBlocks } from '@/hooks/useBitcoinBlocks';
 import { useToast } from '@/hooks/useToast';
@@ -19,7 +20,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   const [gameStartTime, setGameStartTime] = useState(0);
   const [sessionId] = useState(() => `blockstr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
-  
+
   const { toast } = useToast();
   const { currentBlock, blocksFound, isLoading, resetBlocksFound } = useBitcoinBlocks();
   const {
@@ -122,30 +123,32 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   if (!hasStarted) {
     return (
-      <div className={cn("flex items-center justify-center min-h-screen bg-black", className)}>
-        <PaymentGate onPaymentComplete={handlePaymentComplete} />
+      <div className={cn("min-h-screen bg-black", className)}>
+        <GameHeader />
+        <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <PaymentGate onPaymentComplete={handlePaymentComplete} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("min-h-screen bg-black text-white p-4", className)}>
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <header className="text-center mb-6">
-          <h1 className="font-retro text-4xl text-green-400 mb-2">BLOCKSTR</h1>
-          <p className="font-retro text-sm text-gray-400">Bitcoin-Powered Tetris</p>
-          {isLoading && (
-            <p className="font-retro text-xs text-yellow-400 mt-2">Connecting to Bitcoin network...</p>
-          )}
-        </header>
+    <div className={cn("min-h-screen bg-black text-white", className)}>
+      <GameHeader />
+      <div className="max-w-6xl mx-auto p-4">
+        {/* Status */}
+        {isLoading && (
+          <div className="text-center mb-4">
+            <p className="font-retro text-xs text-yellow-400">Connecting to Bitcoin network...</p>
+          </div>
+        )}
 
         {/* Main Game Area */}
         <div className="grid lg:grid-cols-[300px_1fr_300px] gap-6 items-start">
           {/* Left Panel - Stats */}
           <div className="space-y-4">
-            <GameStats 
-              gameState={gameState} 
+            <GameStats
+              gameState={gameState}
               currentBlock={currentBlock}
               className="lg:sticky lg:top-4"
             />
@@ -154,7 +157,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
           {/* Center - Game Board */}
           <div className="flex flex-col items-center gap-4">
             <GameBoard gameState={gameState} />
-            
+
             {/* Mobile Controls */}
             <div className="lg:hidden">
               <GameControls
@@ -175,7 +178,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
           {/* Right Panel - Controls & Next Piece */}
           <div className="space-y-4 lg:sticky lg:top-4">
             <NextPiecePreview piece={gameState.nextPiece} />
-            
+
             {/* Desktop Controls */}
             <div className="hidden lg:block">
               <GameControls
@@ -210,9 +213,9 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         <div className="space-y-1">
           <div>Vibed with MKStack</div>
           <div>
-            <a 
-              href="https://soapbox.pub/mkstack" 
-              target="_blank" 
+            <a
+              href="https://soapbox.pub/mkstack"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:text-blue-300"
             >

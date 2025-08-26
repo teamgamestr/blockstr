@@ -50,21 +50,6 @@ Game scores are published using kind `1001` events with the following structure:
 - `t`: Generic tags for categorization ("gaming" and game-specific tags recommended)
 - `alt`: Human-readable description per NIP-31
 
-## Dual Scoring System (Blockstr Extension)
-
-Blockstr implements a dual scoring system where points are accumulated during gameplay but only become "confirmed" when Bitcoin blocks are mined:
-
-- `score`: The main/final score (equals `mined_score` for compatibility)
-- `mined_score`: Points that have been confirmed when Bitcoin blocks were found
-- `mempool_score`: Points that are pending confirmation (accumulated during current gameplay)
-
-When a new Bitcoin block is discovered:
-1. Current `mempool_score` is transferred to `mined_score`
-2. `mempool_score` is reset to 0
-3. Game speed increases based on the number of blocks found
-
-This creates dynamic gameplay where scores are "locked in" by real-world Bitcoin mining events.
-
 ## Implementation Notes
 
 ### Score Verification

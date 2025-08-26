@@ -20,7 +20,7 @@ export function useScorePublishing() {
   const publishScore = useCallback(async (options: ScorePublishingOptions) => {
     if (!user) return;
 
-    const { sessionId, minedScore, mempoolScore, duration, bitcoinBlocksFound, difficulty } = options;
+    const { sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
 
     // Publish score event (kind 1001) - using mined score as the final score
     const scoreEvent = {
@@ -29,9 +29,7 @@ export function useScorePublishing() {
       tags: [
         ["d", sessionId],
         ["game", gameConfig.gameId],
-        ["score", minedScore.toString()], // Final score is the mined score
-        ["mined_score", minedScore.toString()],
-        ["mempool_score", mempoolScore.toString()],
+        ["score", minedScore.toString()], // Final score is the mined score only
         ["player", user.pubkey],
         ["difficulty", difficulty],
         ["duration", duration.toString()],
@@ -39,7 +37,7 @@ export function useScorePublishing() {
         ["blocks", bitcoinBlocksFound.toString()],
         ["t", "gaming"],
         ["t", gameConfig.gameId],
-        ["alt", `Game score: ${minedScore} mined (${mempoolScore} unmined) in ${gameConfig.gameId}`]
+        ["alt", `Game score: ${minedScore} in ${gameConfig.gameId}`]
       ]
     };
 

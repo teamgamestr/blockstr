@@ -36,6 +36,12 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
   - `useWallet`: Unified wallet detection (WebLN + NWC)
   - `useNWC`: Nostr Wallet Connect connection management
   - `useNWCContext`: Access NWC context provider
+  - `useReactions`: Fetch reactions (kind 7) for events with stats and user reaction status
+  - `useReposts`: Fetch reposts (kind 6 & 16) for events with stats and user repost status
+  - `useQuotes`: Fetch quote reposts (kind 1 with q tag) for events with stats
+  - `useThread`: Fetch event threads (root + replies) for conversation views
+  - `useProfile`: Simplified profile metadata fetching with caching
+  - `useEvent`: Fetch single or multiple events by ID
 - `/src/pages/`: Page components used by React Router (Index, NotFound)
 - `/src/lib/`: Utility functions and shared logic
 - `/src/contexts/`: React context providers (AppContext, NWCContext)
@@ -772,6 +778,177 @@ The comments system also supports commenting on external URLs, making it useful 
   root={new URL("https://example.com/article")}
   title="Comments on this article"
 />
+```
+
+### Social Interactions
+
+The project includes comprehensive social interaction features for engaging with Nostr events.
+
+#### Social Interaction Hooks
+
+**`useReactions`** - Fetch and track reactions (kind 7) on events:
+
+```tsx
+import { useReactions, useReactionStats, useUserReaction } from '@/hooks/useReactions';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+
+function MyComponent({ eventId }: { eventId: string }) {
+  const { user } = useCurrentUser();
+
+  // Get all reactions
+  const { data: reactions } = useReactions(eventId);
+
+  // Get reaction statistics
+  const { likes, dislikes, total } = useReactionStats(eventId);
+
+  // Check if current user has reacted
+  const userReaction = useUserReaction(eventId, user?.pubkey);
+  const hasLiked = userReaction?.content === '+';
+
+  // ...render UI
+}
+```
+
+**`useReposts`** - Fetch and track reposts (kind 6 & 16):
+
+```tsx
+import { useReposts, useRepostStats, useUserRepost } from '@/hooks/useReposts';
+
+function MyComponent({ eventId }: { eventId: string }) {
+  const { user } = useCurrentUser();
+
+  // Get all reposts
+  const { data: reposts } = useReposts(eventId);
+
+  // Get repost count
+  const { count } = useRepostStats(eventId);
+
+  // Check if current user has reposted
+  const hasReposted = !!useUserRepost(eventId, user?.pubkey);
+
+  // ...render UI
+}
+```
+
+**`useQuotes`** - Fetch and track quote reposts (kind 1 with q tag):
+
+```tsx
+import { useQuotes, useQuoteStats } from '@/hooks/useQuotes';
+
+function MyComponent({ eventId }: { eventId: string }) {
+  // Get all quote reposts
+  const { data: quotes } = useQuotes(eventId);
+
+  // Get quote count
+  const { count } = useQuoteStats(eventId);
+
+  // ...render UI
+}
+```
+
+#### SocialActions Component
+
+The `SocialActions` component provides a complete social interaction UI with like, repost, quote, and share buttons:
+
+```tsx
+import { SocialActions } from '@/components/SocialActions';
+
+function MyEventCard({ event }: { event: NostrEvent }) {
+  return (
+    <Card>
+      <CardContent>
+        {/* Event content */}
+      </CardContent>
+      <CardFooter>
+        <SocialActions eventId={event.id} />
+      </CardFooter>
+    </Card>
+  );
+}
+```
+
+Features:
+- **Like button**: Publishes kind 7 reaction with "+" content
+- **Repost button**: Publishes kind 6 repost
+- **Quote button**: Opens dialog to create kind 1 event with q tag
+- **Share button**: Uses native share API or copies link to clipboard
+- **State tracking**: Shows active state for user's own interactions
+- **Login prompts**: Automatically prompts users to log in if not authenticated
+
+#### Profile and Event Views
+
+**`ProfileView`** - Display user profiles with game statistics:
+
+```tsx
+import { ProfileView } from '@/components/ProfileView';
+
+function ProfilePage({ pubkey }: { pubkey: string }) {
+  return <ProfileView pubkey={pubkey} />;
+}
+```
+
+Shows:
+- Profile metadata (avatar, name, bio, website)
+- Game statistics (high score, games played, blocks survived)
+- Recent game scores with detailed stats
+- Automatically links to individual score events
+
+**`EventView`** - Display any Nostr event with social context:
+
+```tsx
+import { EventView } from '@/components/EventView';
+
+function EventPage({ eventId }: { eventId: string }) {
+  return <EventView eventId={eventId} />;
+}
+```
+
+Features:
+- Displays event content with author information
+- Shows social statistics (likes, reposts, quotes)
+- Special rendering for game score events (kind 1001)
+- Includes comments section
+- Fully integrated with social interaction hooks
+
+#### Thread Navigation
+
+**`useThread`** - Fetch conversation threads:
+
+```tsx
+import { useThread } from '@/hooks/useThread';
+
+function ThreadView({ rootEventId }: { rootEventId: string }) {
+  const { data } = useThread(rootEventId);
+  const { root, replies } = data || { root: null, replies: [] };
+
+  return (
+    <div>
+      {root && <EventCard event={root} />}
+      {replies.map(reply => (
+        <ReplyCard key={reply.id} event={reply} />
+      ))}
+    </div>
+  );
+}
+```
+
+**`useAncestors`** - Fetch parent events in a thread:
+
+```tsx
+import { useAncestors } from '@/hooks/useThread';
+
+function ReplyWithContext({ eventId }: { eventId: string }) {
+  const { data: ancestors } = useAncestors(eventId);
+
+  // Show the full conversation chain
+  return (
+    <div>
+      {ancestors.map(ancestor => (
+        <EventCard key={ancestor.id} event={ancestor} />
+      ))}
+    </div>
+  );
+}
 ```
 
 ## App Configuration

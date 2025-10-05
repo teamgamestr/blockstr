@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import type { GameState } from '@/types/game';
 import { gameConfig } from '@/config/gameConfig';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,7 @@ interface GameBoardProps {
   className?: string;
 }
 
-export function GameBoard({ gameState, className }: GameBoardProps) {
+export const GameBoard = forwardRef<HTMLDivElement, GameBoardProps>(function GameBoard({ gameState, className }, ref) {
   const { board, currentPiece } = gameState;
 
   // Create a display board that includes the current falling piece
@@ -21,7 +21,7 @@ export function GameBoard({ gameState, className }: GameBoardProps) {
         if (currentPiece.shape[y][x]) {
           const boardY = currentPiece.position.y + y;
           const boardX = currentPiece.position.x + x;
-          if (boardY >= 0 && boardY < gameConfig.boardHeight && 
+          if (boardY >= 0 && boardY < gameConfig.boardHeight &&
               boardX >= 0 && boardX < gameConfig.boardWidth) {
             displayBoard[boardY][boardX] = {
               x: boardX,
@@ -36,16 +36,17 @@ export function GameBoard({ gameState, className }: GameBoardProps) {
   }
 
   return (
-    <div 
+    <div
+      ref={ref}
       className={cn(
-        "grid border-4 border-gray-800 bg-black relative",
+        "grid border-4 border-gray-800 bg-black relative mx-auto touch-none",
+        "w-full max-w-[300px] sm:max-w-[360px] md:max-w-[420px]",
         className
       )}
       style={{
         gridTemplateColumns: `repeat(${gameConfig.boardWidth}, 1fr)`,
         gridTemplateRows: `repeat(${gameConfig.boardHeight}, 1fr)`,
-        width: gameConfig.boardWidth * gameConfig.blockSize,
-        height: gameConfig.boardHeight * gameConfig.blockSize,
+        aspectRatio: `${gameConfig.boardWidth} / ${gameConfig.boardHeight}`,
       }}
     >
       {displayBoard.map((row, y) =>
@@ -53,35 +54,33 @@ export function GameBoard({ gameState, className }: GameBoardProps) {
           <div
             key={`${x}-${y}`}
             className={cn(
-              "border border-gray-700 relative",
+              "border border-gray-700 relative w-full h-full",
               block ? "border-gray-600" : "border-gray-900"
             )}
             style={{
               backgroundColor: block ? block.color : 'transparent',
-              width: gameConfig.blockSize,
-              height: gameConfig.blockSize,
             }}
           >
             {block?.isBonus && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-xs text-black font-bold animate-pulse">★</div>
+                <div className="text-[0.5rem] sm:text-xs text-black font-bold animate-pulse">★</div>
               </div>
             )}
           </div>
         ))
       )}
-      
+
       {/* Grid overlay for retro look */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,255,0,0.1) 1px, transparent 1px),
             linear-gradient(90deg, rgba(0,255,0,0.1) 1px, transparent 1px)
           `,
-          backgroundSize: `${gameConfig.blockSize}px ${gameConfig.blockSize}px`,
+          backgroundSize: `10% 5%`,
         }}
       />
     </div>
   );
-}
+});

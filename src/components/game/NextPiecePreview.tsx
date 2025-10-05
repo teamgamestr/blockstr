@@ -28,7 +28,7 @@ export function NextPiecePreview({ piece, className }: NextPiecePreviewProps) {
       >
         {Array(previewSize).fill(null).map((_, y) =>
           Array(previewSize).fill(null).map((_, x) => {
-            const hasBlock = piece.shape[y] && piece.shape[y][x];
+            const hasBlock = piece.shape[y]?.[x] === 1;
             return (
               <div
                 key={`${x}-${y}`}

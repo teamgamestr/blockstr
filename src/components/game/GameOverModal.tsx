@@ -92,7 +92,7 @@ export function GameOverModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-black border-red-500 border-2 font-retro text-white max-w-md">
+      <DialogContent className="bg-black border-red-500 border-2 font-retro text-white max-w-md" data-allow-scroll>
         <DialogHeader>
           <DialogTitle className="text-center text-red-400 text-xl flex items-center justify-center gap-2">
             <Trophy className="w-6 h-6" />

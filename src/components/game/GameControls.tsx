@@ -31,17 +31,17 @@ export function GameControls({
   className
 }: GameControlsProps) {
   return (
-    <div className={cn("bg-black border-2 border-gray-600 p-4", className)}>
+    <div className={cn("bg-black border-2 border-gray-600 p-3 sm:p-4", className)}>
       {/* Main Controls */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <div className="text-green-400 text-xs font-retro text-center">CONTROLS</div>
-        
+
         {/* Start/Pause/Reset */}
         <div className="flex gap-2 justify-center">
           {!gameStarted || gameOver ? (
             <Button
               onClick={gameOver ? onReset : onStart}
-              className="bg-green-600 hover:bg-green-700 text-black font-retro text-xs px-4 py-2"
+              className="bg-green-600 hover:bg-green-700 text-black font-retro text-xs px-4 py-2 touch-manipulation"
             >
               <Play className="w-4 h-4 mr-1" />
               {gameOver ? 'NEW GAME' : 'START'}
@@ -49,68 +49,67 @@ export function GameControls({
           ) : (
             <Button
               onClick={onPause}
-              className="bg-yellow-600 hover:bg-yellow-700 text-black font-retro text-xs px-4 py-2"
+              className="bg-yellow-600 hover:bg-yellow-700 text-black font-retro text-xs px-4 py-2 touch-manipulation"
             >
               <Pause className="w-4 h-4 mr-1" />
               {isPaused ? 'RESUME' : 'PAUSE'}
             </Button>
           )}
-          
+
           {gameStarted && (
             <Button
               onClick={onReset}
               variant="destructive"
-              className="font-retro text-xs px-4 py-2"
+              className="font-retro text-xs px-4 py-2 touch-manipulation"
             >
               RESET
             </Button>
           )}
         </div>
 
-        {/* Game Controls */}
+        {/* Game Controls - Mobile Optimized */}
         {gameStarted && !gameOver && (
           <div className="space-y-3">
-            {/* Movement */}
-            <div className="grid grid-cols-3 gap-2 max-w-[120px] mx-auto">
+            {/* Movement - Larger touch targets on mobile */}
+            <div className="grid grid-cols-3 gap-2 max-w-[200px] sm:max-w-[180px] mx-auto">
               <div></div>
               <Button
                 onClick={onRotate}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-retro text-xs p-2"
+                className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-retro text-xs h-14 sm:h-12 touch-manipulation"
               >
-                <RotateCw className="w-4 h-4" />
+                <RotateCw className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
               <div></div>
-              
+
               <Button
                 onClick={onMoveLeft}
-                size="sm"
-                className="bg-gray-600 hover:bg-gray-700 text-white font-retro text-xs p-2"
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-retro text-xs h-14 sm:h-12 touch-manipulation"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
-              
+
               <Button
                 onClick={onHardDrop}
-                size="sm"
-                className="bg-red-600 hover:bg-red-700 text-white font-retro text-xs p-2"
+                className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-retro text-xs h-14 sm:h-12 touch-manipulation"
               >
-                <ArrowDown className="w-4 h-4" />
+                <ArrowDown className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
-              
+
               <Button
                 onClick={onMoveRight}
-                size="sm"
-                className="bg-gray-600 hover:bg-gray-700 text-white font-retro text-xs p-2"
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-retro text-xs h-14 sm:h-12 touch-manipulation"
               >
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* Instructions */}
-        <div className="text-gray-400 text-xs space-y-1 mt-4">
+        {/* Instructions - Hide on mobile during gameplay */}
+        <div className={cn(
+          "text-gray-400 text-xs space-y-1 mt-4",
+          gameStarted && !gameOver && "hidden sm:block"
+        )}>
           <div className="text-center text-green-400 mb-2">KEYBOARD</div>
           <div>← → : Move</div>
           <div>↑ : Rotate</div>
@@ -120,7 +119,10 @@ export function GameControls({
         </div>
 
         {/* Game Info */}
-        <div className="text-xs text-yellow-400 text-center mt-4 space-y-1">
+        <div className={cn(
+          "text-xs text-yellow-400 text-center mt-4 space-y-1",
+          gameStarted && !gameOver && "hidden sm:block"
+        )}>
           <div>Speed increases with</div>
           <div>each Bitcoin block!</div>
           <div className="text-gold">★ = 10x BONUS</div>

@@ -22,19 +22,22 @@ export function GameHeader({ className }: GameHeaderProps) {
   };
 
   return (
-    <header className={`flex items-center justify-between p-4 bg-black border-b border-gray-700 ${className}`}>
-      <div>
-        <h1 className="font-retro text-2xl text-green-400">BLOCKSTR</h1>
-        <p className="font-retro text-xs text-gray-400">Bitcoin-Powered Tetris</p>
+    <header className={`flex items-center justify-between p-2 sm:p-3 lg:p-4 bg-black border-b border-gray-700 overflow-hidden ${className}`}>
+      <div className="flex-shrink min-w-0">
+        <h1 className="font-retro text-base sm:text-lg lg:text-2xl text-green-400">BLOCKSTR</h1>
+        <p className="font-retro text-[0.55rem] sm:text-xs text-gray-400 hidden xs:block">Bitcoin-Powered Tetris</p>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 flex-shrink-0">
         {/* Settings Sheet for Relay Selection */}
         <Sheet open={showSettings} onOpenChange={setShowSettings}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-800">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
+            <Button
+              size="sm"
+              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-primary text-primary-foreground font-medium transition-all hover:bg-primary/90 h-8 sm:h-9 text-xs sm:text-sm"
+            >
+              <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
           </SheetTrigger>
           <SheetContent className="bg-black border-gray-700 text-white">
@@ -44,7 +47,7 @@ export function GameHeader({ className }: GameHeaderProps) {
                 Configure your Nostr relay and publishing preferences
               </SheetDescription>
             </SheetHeader>
-            
+
             <div className="space-y-6 mt-6">
               {/* Relay Selection */}
               <div>
@@ -62,7 +65,7 @@ export function GameHeader({ className }: GameHeaderProps) {
               {user && (
                 <div className="border-t border-gray-700 pt-6">
                   <h3 className="font-retro text-sm text-red-400 mb-3">ACCOUNT</h3>
-                  <Button 
+                  <Button
                     onClick={handleLogout}
                     variant="destructive"
                     className="w-full"
@@ -76,7 +79,9 @@ export function GameHeader({ className }: GameHeaderProps) {
         </Sheet>
 
         {/* Login/Account Area */}
-        <LoginArea className="max-w-48" />
+        <div className="flex-shrink-0 min-w-0">
+          <LoginArea className="max-w-[140px] sm:max-w-none" />
+        </div>
       </div>
     </header>
   );

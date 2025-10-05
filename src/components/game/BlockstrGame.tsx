@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { GameBoard } from './GameBoard';
 import { GameStats } from './GameStats';
 import { GameControls } from './GameControls';
@@ -8,6 +8,7 @@ import { GameOverModal } from './GameOverModal';
 import { GameHeader } from '@/components/GameHeader';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useBitcoinBlocks } from '@/hooks/useBitcoinBlocks';
+import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   const [gameStartTime, setGameStartTime] = useState(0);
   const [sessionId] = useState(() => `blockstr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const gameBoardRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const { currentBlock, blocksFound, isLoading, resetBlocksFound } = useBitcoinBlocks();
@@ -75,6 +77,16 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
+
+  // Swipe controls for mobile - only on game board
+  useSwipeControls({
+    onSwipeLeft: moveLeft,
+    onSwipeRight: moveRight,
+    onSwipeUp: rotate,
+    onSwipeDown: hardDrop,
+    enabled: gameState.gameStarted && !gameState.gameOver && !gameState.isPaused,
+    elementRef: gameBoardRef,
+  });
 
   // Handle new Bitcoin blocks
   useEffect(() => {
@@ -142,20 +154,32 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   }
 
   return (
-    <div className={cn("min-h-screen bg-black text-white", className)}>
+    <div className={cn("min-h-screen bg-black text-white flex flex-col", className)}>
       <GameHeader />
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="max-w-6xl mx-auto p-2 sm:p-4 flex-1 w-full">
         {/* Status */}
         {isLoading && (
-          <div className="text-center mb-4">
+          <div className="text-center mb-2 sm:mb-4">
             <p className="font-retro text-xs text-yellow-400">Connecting to Bitcoin network...</p>
           </div>
         )}
 
+        {/* Mobile Layout - Stats at top */}
+        <div className="lg:hidden mb-3">
+          <div className="grid grid-cols-2 gap-2">
+            <GameStats
+              gameState={gameState}
+              currentBlock={currentBlock}
+              className="col-span-1"
+            />
+            <NextPiecePreview piece={gameState.nextPiece} className="col-span-1" />
+          </div>
+        </div>
+
         {/* Main Game Area */}
-        <div className="grid lg:grid-cols-[300px_1fr_300px] gap-6 items-start">
-          {/* Left Panel - Stats */}
-          <div className="space-y-4">
+        <div className="grid lg:grid-cols-[280px_1fr_280px] gap-3 sm:gap-4 lg:gap-6 items-start">
+          {/* Left Panel - Stats (Desktop) */}
+          <div className="hidden lg:block space-y-4">
             <GameStats
               gameState={gameState}
               currentBlock={currentBlock}
@@ -164,11 +188,18 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
           </div>
 
           {/* Center - Game Board */}
-          <div className="flex flex-col items-center gap-4">
-            <GameBoard gameState={gameState} />
+          <div className="flex flex-col items-center gap-3 sm:gap-4">
+            <GameBoard ref={gameBoardRef} gameState={gameState} />
+
+            {/* Swipe Hint for Mobile */}
+            {gameState.gameStarted && !gameState.gameOver && (
+              <div className="lg:hidden text-center text-xs text-gray-500 font-retro">
+                SWIPE TO MOVE • TAP BUTTONS BELOW
+              </div>
+            )}
 
             {/* Mobile Controls */}
-            <div className="lg:hidden">
+            <div className="lg:hidden w-full max-w-[300px] sm:max-w-[360px]">
               <GameControls
                 onStart={handleStartGame}
                 onPause={pauseGame}
@@ -184,25 +215,23 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
             </div>
           </div>
 
-          {/* Right Panel - Controls & Next Piece */}
-          <div className="space-y-4 lg:sticky lg:top-4">
+          {/* Right Panel - Controls & Next Piece (Desktop) */}
+          <div className="hidden lg:block space-y-4 lg:sticky lg:top-4">
             <NextPiecePreview piece={gameState.nextPiece} />
 
             {/* Desktop Controls */}
-            <div className="hidden lg:block">
-              <GameControls
-                onStart={handleStartGame}
-                onPause={pauseGame}
-                onReset={handleResetGame}
-                onMoveLeft={moveLeft}
-                onMoveRight={moveRight}
-                onRotate={rotate}
-                onHardDrop={hardDrop}
-                gameStarted={gameState.gameStarted}
-                gameOver={gameState.gameOver}
-                isPaused={gameState.isPaused}
-              />
-            </div>
+            <GameControls
+              onStart={handleStartGame}
+              onPause={pauseGame}
+              onReset={handleResetGame}
+              onMoveLeft={moveLeft}
+              onMoveRight={moveRight}
+              onRotate={rotate}
+              onHardDrop={hardDrop}
+              gameStarted={gameState.gameStarted}
+              gameOver={gameState.gameOver}
+              isPaused={gameState.isPaused}
+            />
           </div>
         </div>
 

@@ -16,64 +16,65 @@ export function GameStats({ gameState, currentBlock, className }: GameStatsProps
   };
 
   return (
-    <div className={cn("bg-black border-2 border-gray-600 p-4 font-retro text-sm", className)}>
-      <div className="space-y-3">
+    <div className={cn("bg-black border-2 border-gray-600 p-2 sm:p-3 lg:p-4 font-retro", className)}>
+      <div className="space-y-2 lg:space-y-3">
         {/* Mempool Score */}
         <div>
-          <div className="text-yellow-400 text-xs mb-1">MEMPOOL SCORE</div>
-          <div className="text-white text-lg">{formatNumber(gameState.mempoolScore)}</div>
+          <div className="text-yellow-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">MEMPOOL</div>
+          <div className="text-white text-sm sm:text-base lg:text-lg">{formatNumber(gameState.mempoolScore)}</div>
         </div>
 
         {/* Mined Score */}
         <div>
-          <div className="text-green-400 text-xs mb-1">MINED SCORE</div>
-          <div className="text-white text-lg">{formatNumber(gameState.minedScore)}</div>
+          <div className="text-green-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">MINED</div>
+          <div className="text-white text-sm sm:text-base lg:text-lg">{formatNumber(gameState.minedScore)}</div>
         </div>
 
-        {/* Level */}
-        <div>
-          <div className="text-green-400 text-xs mb-1">LEVEL</div>
-          <div className="text-white">{gameState.level}</div>
-        </div>
+        {/* Level & Lines - Compact on mobile */}
+        <div className="grid grid-cols-2 gap-2 lg:block lg:space-y-3">
+          <div>
+            <div className="text-green-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">LEVEL</div>
+            <div className="text-white text-sm sm:text-base">{gameState.level}</div>
+          </div>
 
-        {/* Lines */}
-        <div>
-          <div className="text-green-400 text-xs mb-1">LINES</div>
-          <div className="text-white">{gameState.linesCleared}</div>
+          <div>
+            <div className="text-green-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">LINES</div>
+            <div className="text-white text-sm sm:text-base">{gameState.linesCleared}</div>
+          </div>
         </div>
 
         {/* Bitcoin Blocks */}
-        <div className="border-t border-gray-700 pt-3">
-          <div className="text-orange-400 text-xs mb-1">BLOCKS FOUND</div>
-          <div className="text-white">{gameState.bitcoinBlocks}</div>
+        <div className="border-t border-gray-700 pt-2 lg:pt-3">
+          <div className="text-orange-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">BLOCKS</div>
+          <div className="text-white text-sm sm:text-base">{gameState.bitcoinBlocks}</div>
         </div>
 
-        {/* Current Bitcoin Block */}
+        {/* Current Bitcoin Block - Hide on small mobile */}
         {currentBlock && (
-          <div>
-            <div className="text-orange-400 text-xs mb-1">CURRENT BLOCK</div>
-            <div className="text-white text-xs">
+          <div className="hidden sm:block">
+            <div className="text-orange-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">CURRENT</div>
+            <div className="text-white text-[0.6rem] sm:text-xs">
               <div>#{formatNumber(currentBlock.height)}</div>
-              <div className="text-gray-400">{formatTime(currentBlock.timestamp)}</div>
+              <div className="text-gray-400 hidden lg:block">{formatTime(currentBlock.timestamp)}</div>
             </div>
           </div>
         )}
 
         {/* Game Speed */}
-        <div className="border-t border-gray-700 pt-3">
-          <div className="text-blue-400 text-xs mb-1">SPEED</div>
-          <div className="text-white">{Math.round(1000 / gameState.dropSpeed * 10) / 10}x</div>
+        <div className="border-t border-gray-700 pt-2 lg:pt-3">
+          <div className="text-blue-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">SPEED</div>
+          <div className="text-white text-sm sm:text-base">{Math.round(1000 / gameState.dropSpeed * 10) / 10}x</div>
         </div>
 
         {/* Game Status */}
         {gameState.isPaused && (
-          <div className="text-yellow-400 text-center animate-pulse">
+          <div className="text-yellow-400 text-center text-xs sm:text-sm animate-pulse">
             PAUSED
           </div>
         )}
 
         {gameState.gameOver && (
-          <div className="text-red-400 text-center animate-pulse">
+          <div className="text-red-400 text-center text-xs sm:text-sm animate-pulse">
             GAME OVER
           </div>
         )}

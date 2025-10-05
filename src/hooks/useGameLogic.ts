@@ -191,15 +191,13 @@ export function useGameLogic(bitcoinBlocks: number) {
     });
   }, []);
 
-  // Game loop
+  // Game loop - uses setInterval for continuous dropping
   useEffect(() => {
     if (gameState.gameStarted && !gameState.gameOver && !gameState.isPaused) {
-      dropTimerRef.current = setTimeout(dropPiece, gameState.dropSpeed);
-      return () => {
-        if (dropTimerRef.current) clearTimeout(dropTimerRef.current);
-      };
+      const intervalId = setInterval(dropPiece, gameState.dropSpeed);
+      return () => clearInterval(intervalId);
     }
-  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused, gameState.dropSpeed, dropPiece, gameState.currentPiece]);
+  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused, gameState.dropSpeed, dropPiece]);
 
   const startGame = useCallback(() => {
     const firstPiece = getRandomTetromino();

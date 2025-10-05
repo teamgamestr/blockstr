@@ -110,6 +110,15 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     resetGame();
     setHasStarted(false);
     setGameStartTime(0);
+    resetBlocksFound();
+  };
+
+  const handleCloseModal = () => {
+    setShowGameOverModal(false);
+    resetGame();
+    setHasStarted(false);
+    setGameStartTime(0);
+    resetBlocksFound();
   };
 
   const handleResetGame = () => {
@@ -204,7 +213,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
           sessionId={sessionId}
           duration={gameDuration}
           onNewGame={handleNewGame}
-          onClose={() => setShowGameOverModal(false)}
+          onClose={handleCloseModal}
         />
       </div>
 

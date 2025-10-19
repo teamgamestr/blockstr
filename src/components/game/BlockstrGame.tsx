@@ -259,10 +259,10 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden lg:flex max-w-6xl mx-auto px-4 flex-1 w-full overflow-hidden">
-        <div className="grid grid-cols-[260px_1fr_260px] gap-6 items-center flex-1 py-2">
+      <div className="hidden lg:flex max-w-7xl mx-auto px-6 flex-1 w-full overflow-hidden relative">
+        <div className="grid grid-cols-[280px_1fr_280px] gap-8 items-center flex-1 py-8">
           {/* Left Panel - Stats (Desktop) */}
-          <div className="flex flex-col justify-center space-y-3">
+          <div className="flex flex-col justify-center space-y-3 min-w-0">
             <GameStats
               gameState={gameState}
               currentBlock={currentBlock}
@@ -270,12 +270,20 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
           </div>
 
           {/* Center - Game Board */}
-          <div className="flex flex-col items-center justify-center">
-            <GameBoard ref={gameBoardRef} gameState={gameState} />
+          <div className="flex flex-col items-center justify-center h-full w-full px-4">
+            <GameBoard
+              ref={gameBoardRef}
+              gameState={gameState}
+              className="w-full h-full"
+              style={{
+                maxHeight: 'calc(100vh - 180px)',
+                maxWidth: 'calc((100vh - 180px) * 0.5)',
+              }}
+            />
           </div>
 
           {/* Right Panel - Next Piece (Desktop) */}
-          <div className="flex flex-col justify-center space-y-3">
+          <div className="flex flex-col justify-center space-y-3 min-w-0">
             <NextPiecePreview piece={gameState.nextPiece} />
           </div>
         </div>

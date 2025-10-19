@@ -228,8 +228,8 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         </div>
 
         {/* Game Board Container - Takes remaining space with padding */}
-        <div className="flex-1 relative flex items-center justify-center overflow-hidden px-3 py-4">
-          <div className="h-full w-full max-w-[280px] flex items-center justify-center">
+        <div className="flex-1 relative flex items-start justify-center overflow-hidden px-3 pt-2 pb-4">
+          <div className="h-full w-full max-w-[280px] flex items-start justify-center">
             <GameBoard
               ref={gameBoardRef}
               gameState={gameState}

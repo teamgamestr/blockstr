@@ -33,7 +33,7 @@ export function LoginArea({ className }: LoginAreaProps) {
           <Button
             onClick={() => setLoginDialogOpen(true)}
             size="sm"
-            className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-primary text-primary-foreground font-medium transition-all hover:bg-primary/90 animate-scale-in h-8 sm:h-9 text-xs sm:text-sm'
+            className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-700 bg-black text-green-400 font-retro transition-all hover:border-green-400 hover:bg-gray-900 h-8 sm:h-9 text-[0.65rem] sm:text-xs uppercase'
           >
             <User className='w-3 h-3 sm:w-4 sm:h-4' />
             <span className='truncate'>Log in</span>
@@ -41,7 +41,7 @@ export function LoginArea({ className }: LoginAreaProps) {
           <Button
             onClick={() => setSignupDialogOpen(true)}
             size="sm"
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-primary text-primary-foreground font-medium transition-all hover:bg-primary/90 h-8 sm:h-9 text-xs sm:text-sm hidden sm:flex"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-700 bg-black text-green-400 font-retro transition-all hover:border-green-400 hover:bg-gray-900 h-8 sm:h-9 text-[0.65rem] sm:text-xs uppercase hidden sm:flex"
           >
             <UserPlus className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>Sign Up</span>

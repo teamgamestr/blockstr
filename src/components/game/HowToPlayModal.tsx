@@ -1,0 +1,114 @@
+import React from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+
+interface HowToPlayModalProps {
+  isOpen: boolean;
+  onStart: () => void;
+}
+
+export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={() => {}}>
+      <DialogContent className="bg-black border-2 border-green-400 text-white max-w-md" hideClose>
+        <DialogHeader>
+          <DialogTitle className="font-retro text-green-400 text-xl text-center">
+            HOW TO PLAY
+          </DialogTitle>
+          <DialogDescription className="text-gray-400 text-center font-retro text-xs">
+            Classic Tetris with Bitcoin blocks
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Desktop Controls */}
+          <div className="hidden lg:block space-y-4">
+            <div className="border border-gray-700 rounded p-4 space-y-3">
+              <h3 className="font-retro text-sm text-yellow-400">KEYBOARD CONTROLS</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1">
+                    <div className="w-8 h-8 border border-gray-600 rounded flex items-center justify-center">
+                      <ArrowLeft className="w-4 h-4" />
+                    </div>
+                    <div className="w-8 h-8 border border-gray-600 rounded flex items-center justify-center">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <span className="text-gray-300">Move left/right</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 border border-gray-600 rounded flex items-center justify-center">
+                    <ArrowUp className="w-4 h-4" />
+                  </div>
+                  <span className="text-gray-300">Rotate piece</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 border border-gray-600 rounded flex items-center justify-center">
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                  <span className="text-gray-300">Soft drop</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="px-3 py-1.5 border border-gray-600 rounded font-retro text-xs">
+                    SPACE
+                  </div>
+                  <span className="text-gray-300">Hard drop</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Controls */}
+          <div className="lg:hidden space-y-4">
+            <div className="border border-gray-700 rounded p-4 space-y-3">
+              <h3 className="font-retro text-sm text-yellow-400">TOUCH CONTROLS</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1">
+                    <ArrowLeft className="w-6 h-6 text-blue-400" />
+                    <ArrowRight className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <span className="text-gray-300">Swipe left/right to move</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <ArrowUp className="w-6 h-6 text-blue-400" />
+                  <span className="text-gray-300">Swipe up to rotate</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <ArrowDown className="w-6 h-6 text-blue-400" />
+                  <span className="text-gray-300">Swipe down to drop</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Game Rules */}
+          <div className="border border-gray-700 rounded p-4 space-y-3">
+            <h3 className="font-retro text-sm text-orange-400">BITCOIN BLOCKS</h3>
+            <div className="space-y-2 text-xs text-gray-300">
+              <p>• Game speed increases with each new Bitcoin block</p>
+              <p>• Golden bonus blocks (★) give 10x points</p>
+              <p>• Clear lines to earn points and survive longer</p>
+              <p>• Your score is published to Nostr when game ends</p>
+            </div>
+          </div>
+        </div>
+
+        <Button
+          onClick={onStart}
+          className="w-full font-retro bg-green-400 hover:bg-green-500 text-black text-lg py-6"
+        >
+          START GAME
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}

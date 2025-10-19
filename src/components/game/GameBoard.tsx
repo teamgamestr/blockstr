@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 interface GameBoardProps {
   gameState: GameState;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export const GameBoard = forwardRef<HTMLDivElement, GameBoardProps>(function GameBoard({ gameState, className }, ref) {
+export const GameBoard = forwardRef<HTMLDivElement, GameBoardProps>(function GameBoard({ gameState, className, style }, ref) {
   const { board, currentPiece } = gameState;
 
   // Create a display board that includes the current falling piece
@@ -39,14 +40,14 @@ export const GameBoard = forwardRef<HTMLDivElement, GameBoardProps>(function Gam
     <div
       ref={ref}
       className={cn(
-        "grid border-4 border-gray-800 bg-black relative mx-auto touch-none",
-        "w-full max-w-[300px] sm:max-w-[360px] md:max-w-[420px]",
+        "grid border-4 border-gray-800 bg-black relative touch-none",
         className
       )}
       style={{
         gridTemplateColumns: `repeat(${gameConfig.boardWidth}, 1fr)`,
         gridTemplateRows: `repeat(${gameConfig.boardHeight}, 1fr)`,
         aspectRatio: `${gameConfig.boardWidth} / ${gameConfig.boardHeight}`,
+        ...style,
       }}
     >
       {displayBoard.map((row, y) =>

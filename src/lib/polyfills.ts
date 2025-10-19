@@ -1,9 +1,37 @@
 /**
+ * Polyfill for crypto.randomUUID()
+ *
+ * crypto.randomUUID() generates a random UUID (v4) string.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
+ */
+
+// Check if crypto.randomUUID is already available
+if (!crypto.randomUUID) {
+  crypto.randomUUID = function(): `${string}-${string}-${string}-${string}-${string}` {
+    // Generate random bytes
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+
+    // Set version (4) and variant bits according to RFC 4122
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+
+    // Convert to hex string with proper UUID format
+    const hex = Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as `${string}-${string}-${string}-${string}-${string}`;
+  };
+}
+
+/**
  * Polyfill for AbortSignal.any()
- * 
+ *
  * AbortSignal.any() creates an AbortSignal that will be aborted when any of the
  * provided signals are aborted. This is useful for combining multiple abort signals.
- * 
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static
  */
 
@@ -57,10 +85,10 @@ if (!AbortSignal.any) {
 
 /**
  * Polyfill for AbortSignal.timeout()
- * 
+ *
  * AbortSignal.timeout() creates an AbortSignal that will be aborted after a
  * specified number of milliseconds.
- * 
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
  */
 
@@ -68,11 +96,11 @@ if (!AbortSignal.any) {
 if (!AbortSignal.timeout) {
   AbortSignal.timeout = function(milliseconds: number): AbortSignal {
     const controller = new AbortController();
-    
+
     setTimeout(() => {
       controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
     }, milliseconds);
-    
+
     return controller.signal;
   };
 }

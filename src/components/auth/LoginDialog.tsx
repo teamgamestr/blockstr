@@ -53,6 +53,13 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    } else {
+      // Also clear state when dialog closes to prevent stale data
+      setIsLoading(false);
+      setIsFileLoading(false);
+      setNsec('');
+      setBunkerUri('');
+      setErrors({});
     }
   }, [isOpen]);
 
@@ -126,15 +133,35 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
     setErrors(prev => ({ ...prev, bunker: undefined }));
 
     try {
+      console.log('Starting bunker login...');
       await login.bunker(bunkerUri);
+      console.log('Bunker login successful');
+
+      // Give the login state a moment to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       onLogin();
       onClose();
       // Clear the URI from memory
       setBunkerUri('');
-    } catch {
+    } catch (e: unknown) {
+      const error = e as Error;
+      console.error('Bunker login failed:', error);
+
+      // Provide more specific error messages
+      let errorMessage = error.message || 'Failed to connect to bunker. Please check the URI.';
+
+      if (errorMessage.includes('already connected')) {
+        errorMessage = 'This bunker connection is already active. Please close other connections or use a different bunker.';
+      } else if (errorMessage.includes('timeout')) {
+        errorMessage = 'Connection timed out. Please check your bunker URI and try again.';
+      } else if (errorMessage.includes('No relay provided')) {
+        errorMessage = 'Invalid bunker URI: No relay provided. Please check the URI format.';
+      }
+
       setErrors(prev => ({
         ...prev,
-        bunker: 'Failed to connect to bunker. Please check the URI.'
+        bunker: errorMessage
       }));
     } finally {
       setIsLoading(false);

@@ -20,17 +20,16 @@ export function useScorePublishing() {
   const publishScore = useCallback(async (options: ScorePublishingOptions) => {
     if (!user) return;
 
-    const { sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
+    const { sessionId: _sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
 
     // Publish score event (kind 762) - using mined score as the final score
     const scoreEvent = {
       kind: 762,
       content: "",
       tags: [
-        ["d", sessionId],
+        ["p", user.pubkey],
         ["game", gameConfig.gameId],
         ["score", minedScore.toString()], // Final score is the mined score only
-        ["player", user.pubkey],
         ["difficulty", difficulty],
         ["duration", duration.toString()],
         ["version", gameConfig.gameVersion],

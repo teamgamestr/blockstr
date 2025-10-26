@@ -19,10 +19,9 @@ Game scores are published using kind `762` events with the following structure:
   "kind": 762,
   "content": "",
   "tags": [
-    ["d", "<unique-game-session-id>"],
+    ["p", "<player-pubkey-hex>"],
     ["game", "<game-identifier>"],
     ["score", "<numerical-score>"],
-    ["player", "<player-pubkey-hex>"],
     ["difficulty", "<difficulty-level>"],
     ["duration", "<game-duration-seconds>"],
     ["version", "<game-version>"],
@@ -34,17 +33,18 @@ Game scores are published using kind `762` events with the following structure:
 
 # Required Tags
 
-- `d`: Unique identifier for this game session
+- `p`: Hex-encoded public key of the player who achieved this score
 - `game`: Unique identifier for the specific game (e.g., "blockstr", "tetris", "chess")
 - `score`: Numerical score achieved (as string)
-- `player`: Hex-encoded public key of the player who achieved this score
 
 # Optional Tags
 
+- `match`: Unique identifier for this game session / match. Can be used to reference individually published scores in a multiplayer match
 - `difficulty`: Difficulty level or mode (e.g., "easy", "hard", "level-5")
 - `duration`: Game duration in seconds (as string)
 - `version`: Version of the game client
 - `genre`: Game genre tags for categorization (e.g. "retro", "puzzle")
+- `referee`: Hex-encoded public key of the person that refereed the match
 - `alt`: Human-readable description per NIP-31
 
 # Implementation Notes

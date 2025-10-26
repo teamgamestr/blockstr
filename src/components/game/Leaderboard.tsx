@@ -71,7 +71,7 @@ export function Leaderboard({ className }: { className?: string }) {
       const scores: ScoreEvent[] = events
         .map(event => {
           const scoreTag = event.tags.find(tag => tag[0] === 'score');
-          const playerTag = event.tags.find(tag => tag[0] === 'player');
+          const playerTag = event.tags.find(tag => tag[0] === 'p');
           const difficultyTag = event.tags.find(tag => tag[0] === 'difficulty');
           const durationTag = event.tags.find(tag => tag[0] === 'duration');
           const blocksTag = event.tags.find(tag => tag[0] === 'blocks');

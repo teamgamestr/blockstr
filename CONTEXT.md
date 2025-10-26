@@ -906,7 +906,7 @@ function EventPage({ eventId }: { eventId: string }) {
 Features:
 - Displays event content with author information
 - Shows social statistics (likes, reposts, quotes)
-- Special rendering for game score events (kind 1001)
+- Special rendering for game score events (kind 762)
 - Includes comments section
 - Fully integrated with social interaction hooks
 

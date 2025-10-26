@@ -22,9 +22,9 @@ export function useScorePublishing() {
 
     const { sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
 
-    // Publish score event (kind 1001) - using mined score as the final score
+    // Publish score event (kind 762) - using mined score as the final score
     const scoreEvent = {
-      kind: 1001,
+      kind: 762,
       content: "",
       tags: [
         ["d", sessionId],
@@ -35,8 +35,9 @@ export function useScorePublishing() {
         ["duration", duration.toString()],
         ["version", gameConfig.gameVersion],
         ["blocks", bitcoinBlocksFound.toString()],
-        ["t", "gaming"],
-        ["t", gameConfig.gameId],
+        ["genre", "puzzle"],
+        ["genre", "retro"],
+        ["genre", "arcade"],
         ["alt", `Game score: ${minedScore} in ${gameConfig.gameId}`]
       ]
     };

@@ -17,13 +17,13 @@ export function ProfileView({ pubkey }: ProfileViewProps) {
   const { data: profile, isLoading: profileLoading } = useProfile(pubkey);
   const { nostr } = useNostr();
 
-  // Fetch user's game scores (kind 1001)
+  // Fetch user's game scores (kind 762)
   const { data: scores = [], isLoading: scoresLoading } = useQuery({
     queryKey: ['user-scores', pubkey],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       const events = await nostr.query(
-        [{ kinds: [1001], authors: [pubkey], limit: 50 }],
+        [{ kinds: [762], authors: [pubkey], limit: 50 }],
         { signal }
       );
       return events.sort((a, b) => {
@@ -40,7 +40,7 @@ export function ProfileView({ pubkey }: ProfileViewProps) {
 
   // Calculate stats
   const totalGames = scores.length;
-  const highScore = scores.length > 0 
+  const highScore = scores.length > 0
     ? parseInt(scores[0].tags.find(([name]) => name === 'score')?.[1] || '0')
     : 0;
   const totalBlocksSurvived = scores.reduce((sum, score) => {
@@ -90,9 +90,9 @@ export function ProfileView({ pubkey }: ProfileViewProps) {
               <div className="flex gap-2 items-center text-sm text-muted-foreground">
                 <code className="text-xs bg-muted px-2 py-1 rounded">{npub.slice(0, 16)}...</code>
                 {metadata?.website && (
-                  <a 
-                    href={metadata.website} 
-                    target="_blank" 
+                  <a
+                    href={metadata.website}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:text-foreground"
                   >

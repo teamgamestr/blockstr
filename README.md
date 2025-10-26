@@ -49,8 +49,8 @@ Game settings are centralized in `/src/config/gameConfig.ts`:
 
 Blockstr implements a custom Nostr Improvement Proposal (NIP) for game scores:
 
-- **Kind 1001**: Game score events
-- **Tags**: player, game, score, difficulty, duration, version
+- **Kind 762**: Game score events
+- **Tags**: player, game, score, difficulty, duration, version, genre
 - **Leaderboards**: Query and rank scores across the network
 - **Verification**: Cryptographic proof of game completion
 

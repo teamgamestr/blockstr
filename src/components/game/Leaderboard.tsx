@@ -62,7 +62,7 @@ export function Leaderboard({ className }: { className?: string }) {
 
       const events = await nostr.query([
         {
-          kinds: [1001],
+          kinds: [762],
           "#game": [gameConfig.gameId],
           limit: 100
         }

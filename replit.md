@@ -72,8 +72,17 @@ The vite.config.ts is configured for Replit environment:
 - Server host: `0.0.0.0` (allows Replit proxy access)
 - Server port: `5000` (Replit webview port)
 - HMR client port: `443` (for secure WebSocket connections)
+- API proxy: `/api` requests forwarded to backend on port 3000
 - Path aliases configured (`@` → `./src`)
 - ES modules support with proper `__dirname` polyfill
+
+### Backend Server
+The server.js Express backend provides:
+- **Score signing endpoint** (`POST /api/sign-score`): Signs game scores with Blockstr's private key
+- **Static file serving**: Serves the built React app from the dist folder
+- **SPA routing support**: Handles client-side routing for the React app
+- **Environment validation**: Checks for BLOCKSTR_NSEC environment variable
+- **Port**: Runs on port 3000 (localhost only, proxied by Vite in dev)
 
 ### Game Configuration
 Core game settings in `/src/config/gameConfig.ts`:
@@ -112,6 +121,13 @@ Implements **Kind 762** for game scores with tags:
 - Free demo mode available
 
 ## Recent Changes
+
+### November 3, 2025
+- **Fixed deployment configuration**: Resolved Git merge conflict markers in vite.config.ts
+- **Updated deployment settings**: Changed deployment to use `node server.js` instead of static file server
+- **Configured API proxy**: Added Vite proxy for `/api` endpoints to backend server on port 3000
+- **Backend integration**: Server.js provides secure score signing via `/api/sign-score` endpoint
+- **Production build verified**: Build process completes successfully with all assets
 
 ### November 2, 2025
 - Initial Replit environment setup

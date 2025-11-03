@@ -1,11 +1,15 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vitest/config";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
   server: {
+<<<<<<< HEAD
     host: "::",
     port: 8080,
     proxy: {
@@ -23,6 +27,12 @@ export default defineConfig(() => ({
           });
         },
       },
+=======
+    host: "0.0.0.0",
+    port: 5000,
+    hmr: {
+      clientPort: 443,
+>>>>>>> 04fdea50a50aea8a6dc8fcd02a1aeaf828cda521
     },
   },
   plugins: [
@@ -32,7 +42,7 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
-    onConsoleLog(log) {
+    onConsoleLog(log: string) {
       return !log.includes("React Router Future Flag Warning");
     },
     env: {

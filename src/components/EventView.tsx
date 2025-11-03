@@ -103,8 +103,8 @@ function EventCard({ event, author }: { event: NostrEvent; author: { metadata?: 
   const npub = nip19.npubEncode(event.pubkey);
   const date = new Date(event.created_at * 1000);
 
-  // Check if this is a game score event (kind 762)
-  const isGameScore = event.kind === 762;
+  // Check if this is a game score event (kind 30762)
+  const isGameScore = event.kind === 30762;
 
   return (
     <Card>

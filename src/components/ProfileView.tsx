@@ -17,13 +17,13 @@ export function ProfileView({ pubkey }: ProfileViewProps) {
   const { data: profile, isLoading: profileLoading } = useProfile(pubkey);
   const { nostr } = useNostr();
 
-  // Fetch user's game scores (kind 762)
+  // Fetch user's game scores (kind 30762)
   const { data: scores = [], isLoading: scoresLoading } = useQuery({
     queryKey: ['user-scores', pubkey],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       const events = await nostr.query(
-        [{ kinds: [762], authors: [pubkey], limit: 50 }],
+        [{ kinds: [30762], authors: [pubkey], limit: 50 }],
         { signal }
       );
       return events.sort((a, b) => {

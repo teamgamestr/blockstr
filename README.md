@@ -2,6 +2,36 @@
 
 A unique twist on the classic Tetris game that integrates with the Bitcoin network and Nostr protocol.
 
+## 🚀 Quick Start
+
+### Development Setup
+
+**Important**: Blockstr requires both an API server and frontend dev server to run.
+
+```bash
+# 1. Clone and install
+git clone <your-repo-url>
+cd blockstr
+npm install
+
+# 2. Configure environment variables
+cp .env.example .env
+# Edit .env and add your BLOCKSTR_NSEC
+
+# 3. Start development servers (both API + frontend)
+npm run dev
+```
+
+This starts:
+- **Express API Server** on `http://localhost:3000` (handles score signing)
+- **Vite Dev Server** on `http://localhost:8080` (React frontend)
+
+Open `http://localhost:8080` in your browser.
+
+⚠️ **Common Issue**: If you see "Server rejected score: Not Found", make sure you're running `npm run dev` (not just `vite`). Both servers must be running.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup and production deployment instructions.
+
 ## 🎮 Game Features
 
 - **Bitcoin Block Integration**: Game speed increases every time a new Bitcoin block is found
@@ -45,14 +75,37 @@ Game settings are centralized in `/src/config/gameConfig.ts`:
 - Board dimensions and visual settings
 - Game identity and version
 
+### Score Signing Configuration
+
+Blockstr uses **server-side signing** to securely sign score events. The game's private key is stored as an environment variable on the server, never exposed to the client:
+
+1. **Generate a keypair** for Blockstr (one-time setup)
+2. **Set environment variable** `BLOCKSTR_NSEC` with the private key
+3. **Deploy to VPS** (Replit, DigitalOcean, etc.)
+4. **Score events are signed** by the server after validation
+5. **Social posts are signed** by the player's key
+
+This architecture ensures:
+- Score authenticity (signed by game provider)
+- Player privacy (player pubkey in p-tag)
+- Anti-cheat validation (server-side checks)
+- Decentralized score storage
+- Private key never exposed to client
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
+
 ## 📊 Score System
 
 Blockstr implements a custom Nostr Improvement Proposal (NIP) for game scores:
 
-- **Kind 762**: Game score events
-- **Tags**: p (player), game, score, difficulty, duration, version, genre
+- **Kind 30762**: Addressable/replaceable game score events
+- **Signed by**: Blockstr's bunker key (game provider)
+- **Player Reference**: Player pubkey in p-tag
+- **Required Tags**: d (identifier), p (player), game, score
+- **Optional Tags**: state, match, difficulty, duration, version, referee, genre
 - **Leaderboards**: Query and rank scores across the network
-- **Verification**: Cryptographic proof of game completion
+- **Verification**: Cryptographic proof of game completion (signed by game)
+- **Replaceability**: Scores can be updated using the same d-tag identifier
 
 ## 🌐 Nostr Integration
 

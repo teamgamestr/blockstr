@@ -33,6 +33,7 @@ export function GameOverModal({
   const [customMessage, setCustomMessage] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasPublishedScore, setHasPublishedScore] = useState(false);
+  const [scoreEventId, setScoreEventId] = useState<string | undefined>();
   const { publishScore, publishGamePost, canPublish } = useScorePublishing();
 
   const formatTime = (seconds: number) => {
@@ -46,7 +47,7 @@ export function GameOverModal({
 
     setIsPublishing(true);
     try {
-      await publishScore({
+      const scoreEvent = await publishScore({
         sessionId,
         minedScore: gameState.minedScore,
         mempoolScore: gameState.mempoolScore,
@@ -55,6 +56,7 @@ export function GameOverModal({
         difficulty: `level-${gameState.level}`,
       });
       setHasPublishedScore(true);
+      setScoreEventId(scoreEvent.id);
     } catch (error) {
       console.error('Failed to publish score:', error);
     } finally {
@@ -75,6 +77,7 @@ export function GameOverModal({
         bitcoinBlocksFound: gameState.bitcoinBlocks,
         difficulty: `level-${gameState.level}`,
         message: customMessage || undefined,
+        scoreEventId, // Reference the score event
       });
     } catch (error) {
       console.error('Failed to share score:', error);
@@ -144,7 +147,7 @@ export function GameOverModal({
                 <Button
                   onClick={handlePublishScore}
                   disabled={isPublishing}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                 >
                   {isPublishing ? 'PUBLISHING...' : 'SAVE SCORE TO NOSTR'}
                 </Button>

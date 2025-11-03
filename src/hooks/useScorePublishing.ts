@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { gameConfig } from '@/config/gameConfig';
+import type { EventTemplate } from 'nostr-tools';
 
 
 interface ScorePublishingOptions {
@@ -14,62 +14,91 @@ interface ScorePublishingOptions {
 }
 
 export function useScorePublishing() {
-  const { mutateAsync: createEvent } = useNostrPublish();
+  const { nostr } = useNostr();
   const { user } = useCurrentUser();
 
   const publishScore = useCallback(async (options: ScorePublishingOptions) => {
-    if (!user) return;
+    console.log('publishScore called with options:', options);
 
-    const { sessionId: _sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
+    if (!user) {
+      console.error('Cannot publish score: user not logged in');
+      throw new Error('User must be logged in to publish scores');
+    }
 
-    // Publish score event (kind 762) - using mined score as the final score
-    const scoreEvent = {
-      kind: 762,
-      content: "",
-      tags: [
-        ["p", user.pubkey],
-        ["game", gameConfig.gameId],
-        ["score", minedScore.toString()], // Final score is the mined score only
-        ["difficulty", difficulty],
-        ["duration", duration.toString()],
-        ["version", gameConfig.gameVersion],
-        ["blocks", bitcoinBlocksFound.toString()],
-        ["genre", "puzzle"],
-        ["genre", "retro"],
-        ["genre", "arcade"],
-        ["alt", `Game score: ${minedScore} in ${gameConfig.gameId}`]
-      ]
-    };
+    const { sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
 
-    await createEvent(scoreEvent);
-    return scoreEvent;
-  }, [user, createEvent]);
+    console.log('Requesting server to sign score...');
 
-  const publishGamePost = useCallback(async (options: ScorePublishingOptions & { message?: string }) => {
-    if (!user) return;
+    try {
+      // Send score data to backend for signing
+      const response = await fetch('/api/sign-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          playerPubkey: user.pubkey,
+          score: minedScore,
+          difficulty,
+          duration,
+          blocks: bitcoinBlocksFound,
+        }),
+      });
 
-    const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, message } = options;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server rejected score: ${response.statusText}`);
+      }
+
+      const { event: signedEvent } = await response.json();
+      console.log('Server signed score successfully:', signedEvent);
+
+      // Publish to relays
+      console.log('Publishing signed event to relays...');
+      await nostr.event(signedEvent);
+      console.log('Score published to relays successfully');
+
+      return signedEvent;
+    } catch (err) {
+      console.error('Error publishing score:', err);
+      throw err;
+    }
+  }, [user, nostr]);
+
+  const publishGamePost = useCallback(async (options: ScorePublishingOptions & { message?: string; scoreEventId?: string }) => {
+    if (!user?.signer) {
+      throw new Error('User must be logged in to publish posts');
+    }
+
+    const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, message, scoreEventId } = options;
 
     const defaultMessage = `Just mined ${minedScore} points in Blockstr! 🎮⚡\n\nPlayed through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.\n\n${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!\\n\\n` : ''}#blockstr #gaming #bitcoin #nostr`;
 
-    const gamePost = {
+    // Create event template (kind 1) - signed by the player
+    const eventTemplate: EventTemplate = {
       kind: 1,
+      created_at: Math.floor(Date.now() / 1000),
       content: message || defaultMessage,
       tags: [
         ["t", "blockstr"],
         ["t", "gaming"],
         ["t", "bitcoin"],
-        ["t", "nostr"]
+        ["t", "nostr"],
+        ...(scoreEventId ? [["e", scoreEventId, "", "mention"]] : [])
       ]
     };
 
-    await createEvent(gamePost);
-    return gamePost;
-  }, [user, createEvent]);
+    // Sign with player's key
+    const signedPost = await user.signer.signEvent(eventTemplate);
+
+    // Publish to relays
+    await nostr.event(signedPost);
+
+    return signedPost;
+  }, [user, nostr]);
 
   return {
     publishScore,
     publishGamePost,
-    canPublish: !!user
+    canPublish: !!user,
   };
 }

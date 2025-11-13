@@ -2,7 +2,7 @@
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Shield, Upload, AlertTriangle, UserPlus, KeyRound, Sparkles, Cloud } from 'lucide-react';
+import { Shield, Upload, AlertTriangle, UserPlus, KeyRound, Sparkles, Cloud, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogDescription } from "@/components/ui/dialog";
@@ -10,6 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { cn } from '@/lib/utils';
+import QRCode from 'qrcode';
+import { generateSecretKey, getPublicKey, nip44, nip19 } from 'nostr-tools';
+import { useNostr } from '@nostrify/react';
+import { NLogin } from '@nostrify/react/login';
+import { useNostrLogin } from '@nostrify/react/login';
 
 interface LoginDialogProps {
   isOpen: boolean;
@@ -31,6 +36,11 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   const [isFileLoading, setIsFileLoading] = useState(false);
   const [nsec, setNsec] = useState('');
   const [bunkerUri, setBunkerUri] = useState('');
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [_nostrConnectUri, setNostrConnectUri] = useState<string>('');
+  const [_clientKeypair, setClientKeypair] = useState<{ secretKey: Uint8Array; pubkey: string } | null>(null);
+  const [_connectionSecret, setConnectionSecret] = useState<string>('');
   const [errors, setErrors] = useState<{
     nsec?: string;
     bunker?: string;
@@ -39,6 +49,9 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const login = useLoginActions();
+  const { nostr } = useNostr();
+  const { addLogin } = useNostrLogin();
+  const subscriptionRef = useRef<(() => void) | null>(null);
 
   // Reset all state when dialog opens/closes
   useEffect(() => {
@@ -48,6 +61,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       setIsFileLoading(false);
       setNsec('');
       setBunkerUri('');
+      setShowQrCode(false);
+      setQrCodeDataUrl('');
+      setNostrConnectUri('');
+      setConnectionSecret('');
       setErrors({});
       // Reset file input
       if (fileInputRef.current) {
@@ -59,9 +76,202 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       setIsFileLoading(false);
       setNsec('');
       setBunkerUri('');
+      setShowQrCode(false);
+      setQrCodeDataUrl('');
+      setNostrConnectUri('');
+      setConnectionSecret('');
+      setClientKeypair(null);
       setErrors({});
+      // Clean up subscription
+      if (subscriptionRef.current) {
+        subscriptionRef.current();
+        subscriptionRef.current = null;
+      }
     }
   }, [isOpen]);
+
+  const generateNostrConnectQR = async () => {
+    try {
+      // Generate a temporary client keypair for this connection
+      const secretKey = generateSecretKey();
+      const pubkey = getPublicKey(secretKey);
+
+      setClientKeypair({ secretKey, pubkey });
+
+      // Generate a random secret for connection verification
+      const secret = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      setConnectionSecret(secret);
+
+      // Get relay URL from app config (using Damus as default)
+      const relayUrl = 'wss://relay.damus.io';
+
+      // Build nostrconnect:// URI according to NIP-46
+      const params = new URLSearchParams({
+        relay: relayUrl,
+        secret: secret,
+        perms: 'sign_event,nip04_encrypt,nip04_decrypt,nip44_encrypt,nip44_decrypt',
+        name: 'Blockstr',
+        url: window.location.origin,
+      });
+
+      const nostrConnectUri = `nostrconnect://${pubkey}?${params.toString()}`;
+      setNostrConnectUri(nostrConnectUri);
+
+      // Generate QR code
+      const qrDataUrl = await QRCode.toDataURL(nostrConnectUri, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+      });
+
+      setQrCodeDataUrl(qrDataUrl);
+      setShowQrCode(true);
+
+      // Listen for connection response from remote signer
+      const controller = new AbortController();
+      subscriptionRef.current = () => controller.abort();
+
+      // Subscribe to kind:24133 events p-tagged to our client pubkey
+      const sub = nostr.req(
+        [{ kinds: [24133], '#p': [pubkey], since: Math.floor(Date.now() / 1000) }],
+        { signal: controller.signal }
+      );
+
+      // Process incoming events
+      (async () => {
+        try {
+          for await (const msg of sub) {
+            if (msg[0] === 'EVENT') {
+              const event = msg[2];
+              console.log('Received NIP-46 event:', event);
+
+              try {
+                // Decrypt the content using NIP-44
+                const conversationKey = nip44.getConversationKey(secretKey, event.pubkey);
+                const decrypted = nip44.decrypt(event.content, conversationKey);
+                const response = JSON.parse(decrypted);
+
+                console.log('Decrypted response:', response);
+                console.log('Expected secret:', secret);
+                console.log('Response result:', response.result);
+                console.log('Response error:', response.error);
+
+                // According to NIP-46, for client-initiated connections:
+                // The remote signer responds with the secret as the result
+                // OR with "ack" for server-initiated connections
+                // Also check if there's an error field
+                if (response.error) {
+                  console.error('Remote signer returned error:', response.error);
+                  setErrors(prev => ({
+                    ...prev,
+                    bunker: `Remote signer error: ${response.error}`
+                  }));
+                  setShowQrCode(false);
+                  controller.abort();
+                  subscriptionRef.current = null;
+                  return;
+                }
+
+                // Check if this is a valid connect response
+                // The result should match our secret, or be "ack"
+                const isValidConnection =
+                  response.result === secret ||
+                  response.result === 'ack' ||
+                  response.method === 'connect';
+
+                if (isValidConnection) {
+                  console.log('Connection successful! Remote signer pubkey:', event.pubkey);
+
+                  // For client-initiated connections, we manually create the NLoginBunker object
+                  // The remote signer pubkey is in event.pubkey
+                  const remoteSignerPubkey = event.pubkey;
+
+                  // Clean up subscription
+                  controller.abort();
+                  subscriptionRef.current = null;
+
+                  setIsLoading(true);
+                  try {
+                    // Convert our client secret key to nsec format
+                    const clientNsec = nip19.nsecEncode(secretKey);
+
+                    // Create a NLoginBunker object manually
+                    // We use the remote signer's pubkey as the user pubkey (will be updated after get_public_key)
+                    const bunkerLogin = new NLogin(
+                      'bunker',
+                      remoteSignerPubkey, // This will be the user's pubkey
+                      {
+                        bunkerPubkey: remoteSignerPubkey,
+                        clientNsec: clientNsec,
+                        relays: [relayUrl]
+                      }
+                    );
+
+                    console.log('Created bunker login object:', {
+                      type: bunkerLogin.type,
+                      pubkey: bunkerLogin.pubkey,
+                      bunkerPubkey: remoteSignerPubkey
+                    });
+
+                    // Add the login
+                    addLogin(bunkerLogin);
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    onLogin();
+                    onClose();
+                  } catch (e: unknown) {
+                    const error = e as Error;
+                    console.error('Failed to create bunker login:', error);
+                    setErrors(prev => ({
+                      ...prev,
+                      bunker: error.message || 'Failed to complete connection.'
+                    }));
+                  } finally {
+                    setIsLoading(false);
+                    setShowQrCode(false);
+                  }
+                } else {
+                  console.log('Response does not match expected format, waiting for next event...');
+                }
+              } catch (decryptError) {
+                console.error('Failed to decrypt event:', decryptError);
+              }
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.error('Subscription error:', error);
+          }
+        }
+      })();
+
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      setErrors(prev => ({
+        ...prev,
+        bunker: 'Failed to generate QR code. Please try again.'
+      }));
+    }
+  };
+
+  const handleCloseQrCode = () => {
+    setShowQrCode(false);
+    setQrCodeDataUrl('');
+    setNostrConnectUri('');
+    setConnectionSecret('');
+    setClientKeypair(null);
+    // Clean up subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current();
+      subscriptionRef.current = null;
+    }
+  };
 
   const handleExtensionLogin = async () => {
     setIsLoading(true);
@@ -361,37 +571,99 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
             </TabsContent>
 
             <TabsContent value='bunker' className='space-y-3 bg-muted'>
-              <div className='space-y-2'>
-                <label htmlFor='bunkerUri' className='text-sm font-medium text-gray-700 dark:text-gray-400'>
-                  Bunker URI
-                </label>
-                <Input
-                  id='bunkerUri'
-                  value={bunkerUri}
-                  onChange={(e) => {
-                    setBunkerUri(e.target.value);
-                    if (errors.bunker) setErrors(prev => ({ ...prev, bunker: undefined }));
-                  }}
-                  className={`rounded-lg border-gray-300 dark:border-gray-700 focus-visible:ring-primary ${
-                    errors.bunker ? 'border-red-500' : ''
-                  }`}
-                  placeholder='bunker://'
-                  autoComplete="off"
-                />
-                {errors.bunker && (
-                  <p className="text-sm text-red-500">{errors.bunker}</p>
-                )}
-              </div>
+              {!showQrCode ? (
+                <>
+                  <div className='space-y-2'>
+                    <label htmlFor='bunkerUri' className='text-sm font-medium text-gray-700 dark:text-gray-400'>
+                      Bunker URI
+                    </label>
+                    <Input
+                      id='bunkerUri'
+                      value={bunkerUri}
+                      onChange={(e) => {
+                        setBunkerUri(e.target.value);
+                        if (errors.bunker) setErrors(prev => ({ ...prev, bunker: undefined }));
+                      }}
+                      className={`rounded-lg border-gray-300 dark:border-gray-700 focus-visible:ring-primary ${
+                        errors.bunker ? 'border-red-500' : ''
+                      }`}
+                      placeholder='bunker://'
+                      autoComplete="off"
+                    />
+                    {errors.bunker && (
+                      <p className="text-sm text-red-500">{errors.bunker}</p>
+                    )}
+                  </div>
 
-              <div className="flex justify-center">
-                <Button
-                  className='w-full rounded-full py-4'
-                  onClick={handleBunkerLogin}
-                  disabled={isLoading || !bunkerUri.trim()}
-                >
-                  {isLoading ? 'Connecting...' : 'Login with Bunker'}
-                </Button>
-              </div>
+                  <div className="flex justify-center">
+                    <Button
+                      className='w-full rounded-full py-4'
+                      onClick={handleBunkerLogin}
+                      disabled={isLoading || !bunkerUri.trim()}
+                    >
+                      {isLoading ? 'Connecting...' : 'Login with Bunker'}
+                    </Button>
+                  </div>
+
+                  <div className='relative'>
+                    <div className='absolute inset-0 flex items-center'>
+                      <div className='w-full border-t border-muted'></div>
+                    </div>
+                    <div className='relative flex justify-center text-xs'>
+                      <span className='px-2 bg-background text-muted-foreground'>
+                        or
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className='text-center'>
+                    <Button
+                      variant='outline'
+                      className='w-full'
+                      onClick={generateNostrConnectQR}
+                      disabled={isLoading}
+                    >
+                      <QrCode className='w-4 h-4 mr-2' />
+                      Show QR Code
+                    </Button>
+                    <p className='text-xs text-muted-foreground mt-2'>
+                      Scan with your remote signer app
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className='space-y-4 text-center'>
+                  <div className='space-y-2'>
+                    <p className='text-sm font-medium'>Scan with your remote signer</p>
+                    <p className='text-xs text-muted-foreground'>
+                      Use Amber, nsec.app, or another NIP-46 compatible signer
+                    </p>
+                  </div>
+
+                  <div className='flex justify-center'>
+                    <div className='bg-white p-4 rounded-lg inline-block'>
+                      <img
+                        src={qrCodeDataUrl}
+                        alt='Nostr Connect QR Code'
+                        className='w-64 h-64'
+                      />
+                    </div>
+                  </div>
+
+                  <div className='space-y-2'>
+                    <p className='text-xs text-muted-foreground'>
+                      Waiting for connection...
+                    </p>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={handleCloseQrCode}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

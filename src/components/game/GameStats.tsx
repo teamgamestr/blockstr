@@ -15,6 +15,13 @@ export function GameStats({ gameState, currentBlock, className }: GameStatsProps
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
 
+  const formatCountdown = (ms: number) => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className={cn("bg-black border-2 border-gray-600 p-2 sm:p-3 lg:p-4 font-retro", className)}>
       <div className="space-y-2 lg:space-y-3">
@@ -42,6 +49,19 @@ export function GameStats({ gameState, currentBlock, className }: GameStatsProps
             <div className="text-white text-sm sm:text-base">{gameState.linesCleared}</div>
           </div>
         </div>
+
+        {/* Difficulty Adjustment Timer */}
+        {gameState.gameStarted && !gameState.gameOver && (
+          <div className="border-t border-gray-700 pt-2 lg:pt-3">
+            <div className="text-purple-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">NEXT LEVEL</div>
+            <div className={cn(
+              "text-white text-sm sm:text-base lg:text-lg font-mono",
+              gameState.timeToNextLevel < 10000 && "text-yellow-400 animate-pulse"
+            )}>
+              {formatCountdown(gameState.timeToNextLevel)}
+            </div>
+          </div>
+        )}
 
         {/* Bitcoin Blocks */}
         <div className="border-t border-gray-700 pt-2 lg:pt-3">

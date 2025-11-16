@@ -36,6 +36,7 @@ export interface GameState {
   dropSpeed: number;
   bitcoinBlocks: number; // Number of Bitcoin blocks found since game start
   lastBlockHash: string | null; // Last Bitcoin block hash seen
+  timeToNextLevel: number; // Milliseconds until next difficulty adjustment
 }
 
 export interface BitcoinBlock {

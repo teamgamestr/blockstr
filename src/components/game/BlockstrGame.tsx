@@ -27,6 +27,33 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   const { toast } = useToast();
   const { currentBlock, blocksFound, resetBlocksFound } = useBitcoinBlocks();
+
+  // Refs for callbacks to avoid circular dependencies
+  const toastRef = useRef(toast);
+  const currentBlockRef = useRef(currentBlock);
+
+  useEffect(() => {
+    toastRef.current = toast;
+    currentBlockRef.current = currentBlock;
+  }, [toast, currentBlock]);
+
+  // Callbacks for game events
+  const handleDifficultyIncrease = useCallback((newLevel: number) => {
+    toastRef.current({
+      title: "⚡ DIFFICULTY INCREASED!",
+      description: `Level ${newLevel} - Game speed increased!`,
+      duration: 3000,
+    });
+  }, []);
+
+  const handleBlockMined = useCallback(() => {
+    toastRef.current({
+      title: "⛏️ NEW BITCOIN BLOCK MINED!",
+      description: `Block #${currentBlockRef.current?.height} - Mempool score transferred!`,
+      duration: 3000,
+    });
+  }, []);
+
   const {
     gameState,
     startGame,
@@ -36,7 +63,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     moveRight,
     rotate,
     hardDrop
-  } = useGameLogic(blocksFound);
+  } = useGameLogic(blocksFound, handleDifficultyIncrease, handleBlockMined);
 
   // Keyboard controls
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
@@ -100,16 +127,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     enabled: gameState.gameStarted && !gameState.gameOver,
   });
 
-  // Handle new Bitcoin blocks
-  useEffect(() => {
-    if (blocksFound > 0 && gameState.gameStarted && !gameState.gameOver) {
-      toast({
-        title: "⚡ NEW BITCOIN BLOCK!",
-        description: `Block #${currentBlock?.height} found! Speed increased!`,
-        duration: 3000,
-      });
-    }
-  }, [blocksFound, gameState.gameStarted, gameState.gameOver, currentBlock?.height, toast]);
+  // Note: Block notifications are now handled by the handleBlockMined callback in useGameLogic
 
   // Handle game over
   useEffect(() => {
@@ -240,6 +258,22 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
                 <span className="text-orange-400">BLOCKS:</span>{' '}
                 <span className="text-white">{gameState.bitcoinBlocks}</span>
               </div>
+              {gameState.gameStarted && !gameState.gameOver && (
+                <div>
+                  <span className="text-purple-400">NEXT:</span>{' '}
+                  <span className={cn(
+                    "text-white font-mono",
+                    gameState.timeToNextLevel < 10000 && "text-yellow-400"
+                  )}>
+                    {(() => {
+                      const totalSeconds = Math.ceil(gameState.timeToNextLevel / 1000);
+                      const minutes = Math.floor(totalSeconds / 60);
+                      const seconds = totalSeconds % 60;
+                      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    })()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

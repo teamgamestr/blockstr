@@ -104,7 +104,7 @@ function clearLines(board: (GameBlock | null)[][]): { newBoard: (GameBlock | nul
   return { newBoard, clearedLines, bonusLinesCleared };
 }
 
-export function useGameLogic(bitcoinBlocks: number) {
+export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newLevel: number) => void, onBlockMined?: () => void) {
   const [gameState, setGameState] = useState<GameState>({
     board: createEmptyBoard(),
     currentPiece: null,
@@ -118,30 +118,85 @@ export function useGameLogic(bitcoinBlocks: number) {
     isPaused: false,
     dropSpeed: gameConfig.initialSpeed,
     bitcoinBlocks: 0,
-    lastBlockHash: null
+    lastBlockHash: null,
+    timeToNextLevel: gameConfig.levelDuration
   });
 
   const dropTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const levelTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const gameStartTimeRef = useRef<number | null>(null);
 
-  // Update drop speed and transfer scores when Bitcoin blocks are found
+  // Time-based level progression (every 2 minutes)
   useEffect(() => {
-    if (bitcoinBlocks > gameState.bitcoinBlocks) {
-      const newSpeed = Math.max(
-        gameConfig.maxSpeed,
-        gameConfig.initialSpeed * Math.pow(gameConfig.speedIncrease, bitcoinBlocks)
-      );
+    if (gameState.gameStarted && !gameState.gameOver && !gameState.isPaused) {
+      // Start the timer when game starts
+      if (!gameStartTimeRef.current) {
+        gameStartTimeRef.current = Date.now();
+      }
 
+      // Set interval to check level progression and update countdown every 100ms for smooth countdown
+      const intervalId = setInterval(() => {
+        if (!gameStartTimeRef.current) return;
+
+        const elapsedTime = Date.now() - gameStartTimeRef.current;
+        const expectedLevel = Math.floor(elapsedTime / gameConfig.levelDuration) + 1;
+        const timeInCurrentLevel = elapsedTime % gameConfig.levelDuration;
+        const timeToNextLevel = gameConfig.levelDuration - timeInCurrentLevel;
+
+        setGameState(prev => {
+          const updates: Partial<GameState> = {
+            timeToNextLevel
+          };
+
+          if (expectedLevel > prev.level) {
+            // Calculate new speed based on level
+            const newSpeed = Math.max(
+              gameConfig.maxSpeed,
+              gameConfig.initialSpeed * Math.pow(gameConfig.speedIncrease, expectedLevel - 1)
+            );
+
+            // Trigger difficulty increase callback with new level
+            if (onDifficultyIncrease) {
+              onDifficultyIncrease(expectedLevel);
+            }
+
+            updates.level = expectedLevel;
+            updates.dropSpeed = newSpeed;
+          }
+
+          return {
+            ...prev,
+            ...updates
+          };
+        });
+      }, 100); // Update every 100ms for smooth countdown
+
+      return () => clearInterval(intervalId);
+    } else {
+      // Reset game start time when game is not active
+      if (!gameState.gameStarted || gameState.gameOver) {
+        gameStartTimeRef.current = null;
+      }
+    }
+  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused, onDifficultyIncrease]);
+
+  // Transfer scores when Bitcoin blocks are found
+  useEffect(() => {
+    if (bitcoinBlocks > gameState.bitcoinBlocks && gameState.gameStarted) {
       setGameState(prev => ({
         ...prev,
-        dropSpeed: newSpeed,
         bitcoinBlocks,
-        level: bitcoinBlocks + 1,
         // Transfer mempool score to mined score when a new block is found
         minedScore: prev.minedScore + prev.mempoolScore,
         mempoolScore: 0 // Reset mempool score
       }));
+
+      // Trigger block mined callback
+      if (onBlockMined) {
+        onBlockMined();
+      }
     }
-  }, [bitcoinBlocks, gameState.bitcoinBlocks]);
+  }, [bitcoinBlocks, gameState.bitcoinBlocks, gameState.gameStarted, onBlockMined]);
 
   const dropPiece = useCallback(() => {
     setGameState(prev => {
@@ -203,6 +258,8 @@ export function useGameLogic(bitcoinBlocks: number) {
     const firstPiece = getRandomTetromino();
     const nextPiece = getRandomTetromino(Math.random() < (1 / gameConfig.bonusBlockChance));
 
+    gameStartTimeRef.current = Date.now();
+
     setGameState({
       board: createEmptyBoard(),
       currentPiece: firstPiece,
@@ -216,7 +273,8 @@ export function useGameLogic(bitcoinBlocks: number) {
       isPaused: false,
       dropSpeed: gameConfig.initialSpeed,
       bitcoinBlocks: 0,
-      lastBlockHash: null
+      lastBlockHash: null,
+      timeToNextLevel: gameConfig.levelDuration
     });
   }, []);
 
@@ -226,6 +284,9 @@ export function useGameLogic(bitcoinBlocks: number) {
 
   const resetGame = useCallback(() => {
     if (dropTimerRef.current) clearTimeout(dropTimerRef.current);
+    if (levelTimerRef.current) clearTimeout(levelTimerRef.current);
+    gameStartTimeRef.current = null;
+
     setGameState({
       board: createEmptyBoard(),
       currentPiece: null,
@@ -239,7 +300,8 @@ export function useGameLogic(bitcoinBlocks: number) {
       isPaused: false,
       dropSpeed: gameConfig.initialSpeed,
       bitcoinBlocks: 0,
-      lastBlockHash: null
+      lastBlockHash: null,
+      timeToNextLevel: gameConfig.levelDuration
     });
   }, []);
 

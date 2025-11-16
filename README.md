@@ -34,10 +34,12 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup and production deployment 
 
 ## 🎮 Game Features
 
-- **Bitcoin Block Integration**: Game speed increases every time a new Bitcoin block is found
+- **Time-Based Difficulty**: Game speed increases every 2 minutes for progressive challenge
+- **Countdown Timer**: Live countdown showing time until next difficulty adjustment
+- **Bitcoin Block Integration**: Scores transfer from mempool to mined when Bitcoin blocks are found
 - **Retro 8-bit Aesthetic**: Pixel-perfect graphics with classic arcade styling
 - **Bonus Blocks**: 1-in-100 chance for golden bonus blocks that give 10x points
-- **Progressive Difficulty**: Each Bitcoin block makes the game faster and more challenging
+- **Dual Notifications**: Separate alerts for difficulty increases and Bitcoin block mining
 - **Pay-to-Play**: Lightning payments required to start a game (demo mode available)
 - **Nostr Integration**: Scores published to the decentralized Nostr network
 - **Social Sharing**: Share your achievements with the Nostr community
@@ -61,15 +63,17 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup and production deployment 
    - Down arrow or S to soft drop
    - Space bar for hard drop
    - P to pause
-4. **Speed Increases** automatically when new Bitcoin blocks are found
-5. **Bonus Points** for clearing lines containing golden bonus blocks (★)
-6. **Share Your Score** on Nostr when the game ends
+4. **Difficulty Increases** automatically every 2 minutes
+5. **Bitcoin Blocks**: When a new block is mined, your mempool score transfers to mined score
+6. **Bonus Points** for clearing lines containing golden bonus blocks (★)
+7. **Share Your Score** on Nostr when the game ends
 
 ## 🔧 Configuration
 
 Game settings are centralized in `/src/config/gameConfig.ts`:
 
-- Initial game speed and acceleration
+- Initial game speed and acceleration per level
+- Level duration (2 minutes per level)
 - Scoring multipliers and bonus chances
 - Payment amounts and Lightning settings
 - Board dimensions and visual settings
@@ -134,9 +138,10 @@ Blockstr implements a custom Nostr Improvement Proposal (NIP) for game scores:
 ## 🔗 Bitcoin Integration
 
 - **Real-time Blocks**: Connects to mempool.space API
-- **Speed Scaling**: Game difficulty scales with network activity
-- **Block Notifications**: Toast alerts for new blocks
-- **Statistics**: Track how many blocks survived during gameplay
+- **Mempool Scoring**: Scores accumulate in mempool until blocks are mined
+- **Block Notifications**: Toast alerts when Bitcoin blocks are mined and scores transfer
+- **Difficulty Notifications**: Alerts every 2 minutes when difficulty increases
+- **Statistics**: Track how many blocks were mined during gameplay
 
 ## 🏆 Achievements
 

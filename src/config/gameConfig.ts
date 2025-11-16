@@ -1,8 +1,9 @@
 export interface GameConfig {
   // Game mechanics
   initialSpeed: number; // milliseconds per drop
-  speedIncrease: number; // speed multiplier per Bitcoin block
+  speedIncrease: number; // speed multiplier per level
   maxSpeed: number; // minimum milliseconds per drop
+  levelDuration: number; // milliseconds per level (2 minutes)
 
   // Scoring
   lineScore: number; // base points per line
@@ -31,8 +32,9 @@ export interface GameConfig {
 export const gameConfig: GameConfig = {
   // Game mechanics
   initialSpeed: 1000, // 1 second per drop initially
-  speedIncrease: 0.85, // 15% faster after each Bitcoin block
+  speedIncrease: 0.85, // 15% faster after each level
   maxSpeed: 100, // Maximum speed (0.1 seconds per drop)
+  levelDuration: 2 * 60 * 1000, // 2 minutes per level
 
   // Scoring
   lineScore: 100, // 100 points per line

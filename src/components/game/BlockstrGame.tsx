@@ -9,6 +9,7 @@ import { GameHeader } from '@/components/GameHeader';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useBitcoinBlocks } from '@/hooks/useBitcoinBlocks';
 import { useSwipeControls } from '@/hooks/useSwipeControls';
+import { useGamepadControls } from '@/hooks/useGamepadControls';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   const {
     gameState,
     startGame,
+    pauseGame,
     resetGame,
     moveLeft,
     moveRight,
@@ -66,8 +68,13 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         event.preventDefault();
         hardDrop();
         break;
+      case 'KeyP':
+      case 'Escape':
+        event.preventDefault();
+        pauseGame();
+        break;
     }
-  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop]);
+  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -80,6 +87,16 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     onSwipeRight: moveRight,
     onSwipeUp: rotate,
     onSwipeDown: hardDrop,
+    enabled: gameState.gameStarted && !gameState.gameOver,
+  });
+
+  // Gamepad/USB controller controls
+  useGamepadControls({
+    onMoveLeft: moveLeft,
+    onMoveRight: moveRight,
+    onRotate: rotate,
+    onHardDrop: hardDrop,
+    onPause: pauseGame,
     enabled: gameState.gameStarted && !gameState.gameOver,
   });
 

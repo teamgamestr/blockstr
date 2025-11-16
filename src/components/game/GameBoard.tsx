@@ -82,6 +82,20 @@ export const GameBoard = forwardRef<HTMLDivElement, GameBoardProps>(function Gam
           backgroundSize: `10% 5%`,
         }}
       />
+
+      {/* Pause overlay */}
+      {gameState.isPaused && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-none">
+          <div className="text-center space-y-2">
+            <div className="text-yellow-400 text-2xl sm:text-4xl font-retro animate-pulse">
+              PAUSED
+            </div>
+            <div className="text-gray-400 text-xs sm:text-sm font-retro">
+              Press P or Start to resume
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

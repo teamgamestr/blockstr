@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Gamepad2 } from 'lucide-react';
 
 interface HowToPlayModalProps {
   isOpen: boolean;
@@ -62,6 +62,26 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                   </div>
                   <span className="text-gray-300">Hard drop</span>
                 </div>
+                <div className="flex items-center gap-3">
+                  <div className="px-3 py-1.5 border border-gray-600 rounded font-retro text-xs">
+                    P / ESC
+                  </div>
+                  <span className="text-gray-300">Pause</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-700 rounded p-4 space-y-3">
+              <h3 className="font-retro text-sm text-purple-400 flex items-center gap-2">
+                <Gamepad2 className="w-4 h-4" />
+                CONTROLLER SUPPORT
+              </h3>
+              <div className="space-y-2 text-xs text-gray-300">
+                <p>• D-Pad / Left Stick: Move & rotate</p>
+                <p>• A / X Buttons: Rotate piece</p>
+                <p>• B Button: Hard drop</p>
+                <p>• Shoulder Buttons: Move left/right</p>
+                <p>• Start Button: Pause game</p>
               </div>
             </div>
           </div>

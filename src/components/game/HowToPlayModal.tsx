@@ -120,12 +120,13 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
 
           {/* Game Rules */}
           <div className="border border-gray-700 rounded p-4 space-y-3">
-            <h3 className="font-retro text-sm text-orange-400">BITCOIN BLOCKS</h3>
+            <h3 className="font-retro text-sm text-orange-400">GAME RULES</h3>
             <div className="space-y-2 text-xs text-gray-300">
-              <p>• Game speed increases with each new Bitcoin block</p>
+              <p>• <span className="text-purple-400">Difficulty increases every 2 minutes</span></p>
+              <p>• <span className="text-yellow-400">Mempool score</span> builds during gameplay</p>
+              <p>• <span className="text-green-400">Mined score</span> transfers when Bitcoin blocks are found</p>
               <p>• Golden bonus blocks (★) give 10x points</p>
-              <p>• Clear lines to earn points and survive longer</p>
-              <p>• Your score is published to Nostr when game ends</p>
+              <p>• <span className="text-orange-400">Only mined scores</span> count and are published to <span className="text-blue-400">gamestr.io</span></p>
             </div>
           </div>
         </div>

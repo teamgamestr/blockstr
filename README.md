@@ -64,9 +64,10 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup and production deployment 
    - Space bar for hard drop
    - P to pause
 4. **Difficulty Increases** automatically every 2 minutes
-5. **Bitcoin Blocks**: When a new block is mined, your mempool score transfers to mined score
-6. **Bonus Points** for clearing lines containing golden bonus blocks (★)
-7. **Share Your Score** on Nostr when the game ends
+5. **Mempool Score**: Points accumulate in your mempool score during gameplay
+6. **Mined Score**: When Bitcoin blocks are found, mempool score transfers to mined score
+7. **Bonus Points** for clearing lines containing golden bonus blocks (★)
+8. **Score Publishing**: Only mined scores count and are published to gamestr.io
 
 ## 🔧 Configuration
 
@@ -100,8 +101,15 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
 
 ## 📊 Score System
 
-Blockstr implements a custom Nostr Improvement Proposal (NIP) for game scores:
+Blockstr implements a dual-score system with Bitcoin integration:
 
+### Mempool vs Mined Scores
+- **Mempool Score**: Points earned during gameplay (yellow) - builds up as you play
+- **Mined Score**: Points transferred when Bitcoin blocks are mined (green) - permanent record
+- **Score Publishing**: Only mined scores are published to gamestr.io
+- **Bitcoin Integration**: Mempool scores transfer to mined when blocks are found
+
+### Nostr Implementation (NIP-XX)
 - **Kind 30762**: Addressable/replaceable game score events
 - **Signed by**: Blockstr's bunker key (game provider)
 - **Player Reference**: Player pubkey in p-tag

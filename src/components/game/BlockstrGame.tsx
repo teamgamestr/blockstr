@@ -258,22 +258,20 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
                 <span className="text-orange-400">BLOCKS:</span>{' '}
                 <span className="text-white">{gameState.bitcoinBlocks}</span>
               </div>
-              {gameState.gameStarted && !gameState.gameOver && (
-                <div>
-                  <span className="text-purple-400">NEXT:</span>{' '}
-                  <span className={cn(
-                    "text-white font-mono",
-                    gameState.timeToNextLevel < 10000 && "text-yellow-400"
-                  )}>
-                    {(() => {
-                      const totalSeconds = Math.ceil(gameState.timeToNextLevel / 1000);
-                      const minutes = Math.floor(totalSeconds / 60);
-                      const seconds = totalSeconds % 60;
-                      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    })()}
-                  </span>
-                </div>
-              )}
+              <div>
+                <span className="text-purple-400">DIFF:</span>{' '}
+                <span className={cn(
+                  "text-white font-mono",
+                  gameState.timeToNextLevel < 10000 && "text-yellow-400"
+                )}>
+                  {gameState.gameStarted && !gameState.gameOver ? (() => {
+                    const totalSeconds = Math.ceil(gameState.timeToNextLevel / 1000);
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                  })() : '--:--'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

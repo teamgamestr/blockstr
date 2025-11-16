@@ -51,17 +51,17 @@ export function GameStats({ gameState, currentBlock, className }: GameStatsProps
         </div>
 
         {/* Difficulty Adjustment Timer */}
-        {gameState.gameStarted && !gameState.gameOver && (
-          <div className="border-t border-gray-700 pt-2 lg:pt-3">
-            <div className="text-purple-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">NEXT LEVEL</div>
-            <div className={cn(
-              "text-white text-sm sm:text-base lg:text-lg font-mono",
-              gameState.timeToNextLevel < 10000 && "text-yellow-400 animate-pulse"
-            )}>
-              {formatCountdown(gameState.timeToNextLevel)}
-            </div>
+        <div className="border-t border-gray-700 pt-2 lg:pt-3">
+          <div className="text-purple-400 text-[0.6rem] sm:text-xs mb-0.5 sm:mb-1">DIFFICULTY ADJUSTMENT IN:</div>
+          <div className={cn(
+            "text-white text-sm sm:text-base lg:text-lg font-mono",
+            gameState.timeToNextLevel < 10000 && "text-yellow-400 animate-pulse"
+          )}>
+            {gameState.gameStarted && !gameState.gameOver
+              ? formatCountdown(gameState.timeToNextLevel)
+              : '--:--'}
           </div>
-        )}
+        </div>
 
         {/* Bitcoin Blocks */}
         <div className="border-t border-gray-700 pt-2 lg:pt-3">

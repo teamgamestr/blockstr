@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useGamepadMenu } from '@/hooks/useGamepadMenu';
 import { gameConfig } from '@/config/gameConfig';
 import { Coins, Zap, Play } from 'lucide-react';
 import { LoginArea } from '@/components/auth/LoginArea';
@@ -13,7 +14,39 @@ interface PaymentGateProps {
 
 export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedButton, setSelectedButton] = useState(0); // 0: Pay, 1: Free Play
   const { user } = useCurrentUser();
+
+  const payButtonRef = useRef<HTMLButtonElement>(null);
+  const freePlayButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus the selected button
+  useEffect(() => {
+    const buttons = [payButtonRef, freePlayButtonRef];
+    const currentButton = buttons[selectedButton]?.current;
+    if (currentButton) {
+      currentButton.focus();
+    }
+  }, [selectedButton]);
+
+  // Gamepad controls for payment gate
+  useGamepadMenu({
+    onConfirm: () => {
+      if (user) {
+        if (selectedButton === 0) handlePayment();
+        else handleFreePlay();
+      } else {
+        handleFreePlay();
+      }
+    },
+    onNavigateUp: () => {
+      if (user) setSelectedButton(0);
+    },
+    onNavigateDown: () => {
+      if (user) setSelectedButton(1);
+    },
+    enabled: !isProcessing,
+  });
 
   const handlePayment = async () => {
     if (!user) return;
@@ -61,12 +94,16 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </div>
               <LoginArea className="max-w-60 mx-auto" />
               <Button
+                ref={freePlayButtonRef}
                 onClick={handleFreePlay}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-retro"
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-retro focus:ring-2 focus:ring-gray-400"
               >
                 <Play className="w-4 h-4 mr-2" />
                 PLAY ANONYMOUSLY
               </Button>
+              <div className="text-center text-xs text-gray-600 font-retro">
+                🎮 Press A button to start
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -79,22 +116,28 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
 
               <div className="grid gap-3">
                 <Button
+                  ref={payButtonRef}
                   onClick={handlePayment}
                   disabled={isProcessing}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-retro"
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-retro focus:ring-2 focus:ring-orange-400"
                 >
                   <Coins className="w-4 h-4 mr-2" />
                   {isProcessing ? 'PROCESSING...' : `PAY ${gameConfig.costToPlay} SATS`}
                 </Button>
 
                 <Button
+                  ref={freePlayButtonRef}
                   onClick={handleFreePlay}
                   variant="outline"
-                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 font-retro"
+                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 font-retro focus:ring-2 focus:ring-gray-400"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   PLAY FREE (DEMO)
                 </Button>
+              </div>
+
+              <div className="text-center text-xs text-gray-600 font-retro">
+                🎮 Use D-Pad/Stick + A button
               </div>
             </div>
           )}

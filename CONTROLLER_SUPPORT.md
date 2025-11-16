@@ -13,25 +13,57 @@ The game uses the standard Gamepad API and supports any controller that follows 
 
 ## Controller Mapping
 
-### D-Pad / Left Analog Stick
+### In-Game Controls
+
+#### D-Pad / Left Analog Stick
 - **Left/Right**: Move piece horizontally
 - **Up**: Rotate piece
 - **Down**: Hard drop
 
-### Face Buttons
+#### Face Buttons
 - **A Button** (Xbox) / **Cross** (PlayStation): Rotate piece
 - **B Button** (Xbox) / **Circle** (PlayStation): Hard drop
 - **X Button** (Xbox) / **Square** (PlayStation): Rotate piece
 - **Y Button** (Xbox) / **Triangle** (PlayStation): *(not mapped)*
 
-### Shoulder Buttons
+#### Shoulder Buttons
 - **Left Bumper (LB/L1)**: Move left
 - **Right Bumper (RB/R1)**: Move right
 
-### System Buttons
+#### System Buttons
 - **Start/Options Button**: Pause/Resume game
 
+### Menu & Modal Navigation
+
+Controllers work throughout the entire game interface, not just during gameplay!
+
+#### Payment Gate / Start Screen
+- **D-Pad Up/Down** or **Left Stick**: Navigate between buttons
+- **A Button** (Xbox) / **Cross** (PlayStation): Confirm selection
+- **Start Button**: Quick start with selected option
+
+#### How To Play Modal
+- **A Button** (Xbox) / **Cross** (PlayStation): Start game
+- **Start Button**: Start game
+
+#### Game Over Modal
+- **D-Pad Up/Down** or **Left Stick**: Navigate between options
+- **A Button** (Xbox) / **Cross** (PlayStation): Select highlighted option
+- **B Button** (Xbox) / **Circle** (PlayStation): Close modal
+- **Select/Back Button**: Close modal
+
+Available options in Game Over screen:
+1. **Save Score to Nostr** (if logged in and not yet saved)
+2. **Share Score** (if logged in and score saved)
+3. **New Game** - Start a new game
+4. **Close** - Return to start screen
+
 ## Features
+
+### Full Interface Navigation
+- **Menus**: Navigate all menus and dialogs with your controller
+- **In-Game**: Full gameplay control without touching keyboard/mouse
+- **Seamless**: Switch between menus and gameplay without changing input methods
 
 ### Analog Stick Support
 - The left analog stick works just like the D-pad
@@ -40,8 +72,13 @@ The game uses the standard Gamepad API and supports any controller that follows 
 
 ### Repeat Actions
 - Actions repeat automatically when holding buttons/stick
-- **150ms delay** between repeats for precise control
+- **150ms-200ms delay** between repeats for precise control
 - Prevents accidental double-inputs
+
+### Visual Feedback
+- **Focus rings**: Highlighted buttons show which option is selected
+- **Gamepad hints**: On-screen prompts show controller instructions
+- **Button indicators**: Clear visual feedback for navigation
 
 ### Hot-Plugging
 - Controllers can be connected/disconnected at any time
@@ -53,6 +90,7 @@ All control methods work simultaneously:
 - ✅ Keyboard (Arrow keys, WASD)
 - ✅ Touch/Swipe (mobile)
 - ✅ USB Controller (gamepad)
+- ✅ Mouse/Trackpad (for menus)
 
 ## Technical Details
 
@@ -60,7 +98,10 @@ All control methods work simultaneously:
 The controller support is implemented using the **Gamepad API**:
 - Continuous polling using `requestAnimationFrame`
 - Checks all buttons and axes every frame
-- Only processes actions when the game is active (not paused/game over)
+- Context-aware: Different behavior in menus vs gameplay
+- Two specialized hooks:
+  - `useGamepadControls`: For in-game Tetris controls
+  - `useGamepadMenu`: For menu and modal navigation
 
 ### Button Mapping
 Uses the **Standard Gamepad** layout defined by the W3C:
@@ -69,8 +110,14 @@ Uses the **Standard Gamepad** layout defined by the W3C:
 
 ### Performance
 - Efficient polling with RAF (no setTimeout/setInterval)
-- Minimal overhead - only polls when game is active
-- Cleanup on unmount to prevent memory leaks
+- Minimal overhead - only polls when active
+- Automatic cleanup on unmount to prevent memory leaks
+- Separate polling for gameplay and menus (never both at once)
+
+### Focus Management
+- Automatic button focus in menus based on controller navigation
+- Visual focus indicators (ring highlights)
+- Keyboard and controller navigation work together seamlessly
 
 ## Linux/Ubuntu Setup
 

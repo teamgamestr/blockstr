@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Gamepad2 } from 'lucide-react';
+import { useGamepadMenu } from '@/hooks/useGamepadMenu';
 
 interface HowToPlayModalProps {
   isOpen: boolean;
@@ -15,6 +16,12 @@ interface HowToPlayModalProps {
 }
 
 export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
+  // Gamepad controls for modal
+  useGamepadMenu({
+    onConfirm: onStart,
+    enabled: isOpen,
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent className="bg-black border-2 border-green-400 text-white max-w-md" hideClose>
@@ -81,7 +88,8 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                 <p>• A / X Buttons: Rotate piece</p>
                 <p>• B Button: Hard drop</p>
                 <p>• Shoulder Buttons: Move left/right</p>
-                <p>• Start Button: Pause game</p>
+                <p>• Start Button: Pause / Menu select</p>
+                <p>• A Button in menus: Confirm</p>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -55,35 +55,8 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     }
   );
 
-  // Focus the selected button
-  useEffect(() => {
-    const buttons = gameConfig.freePlayEnabled ? [payButtonRef, freePlayButtonRef] : [payButtonRef];
-    const currentButton = buttons[selectedButton]?.current;
-    if (currentButton) {
-      currentButton.focus();
-    }
-  }, [selectedButton]);
-
-  // Gamepad controls for payment gate
-  useGamepadMenu({
-    onConfirm: () => {
-      if (user) {
-        if (selectedButton === 0) handlePayment();
-        else if (gameConfig.freePlayEnabled) handleFreePlay();
-      } else {
-        handleFreePlay();
-      }
-    },
-    onNavigateUp: () => {
-      if (user && gameConfig.freePlayEnabled) setSelectedButton(0);
-    },
-    onNavigateDown: () => {
-      if (user && gameConfig.freePlayEnabled) setSelectedButton(1);
-    },
-    enabled: !isProcessing && !isZapping,
-  });
-
-  const handlePayment = async () => {
+  // Handler functions defined first
+  const handlePayment = useCallback(async () => {
     if (!user) {
       toast({
         title: 'Login required',
@@ -128,12 +101,79 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [user, webln, activeNWC, toast, resetInvoice, zap, customMemo, invoice]);
 
-  const handleFreePlay = () => {
+  const handleFreePlay = useCallback(() => {
     // For anonymous users or when free play is enabled
     onPaymentComplete();
-  };
+  }, [onPaymentComplete]);
+
+  // Focus the primary button when component mounts
+  useEffect(() => {
+    if (!user) {
+      // Focus free play button for anonymous users
+      setTimeout(() => {
+        freePlayButtonRef.current?.focus();
+      }, 100);
+    } else {
+      // Focus payment button for logged-in users
+      setTimeout(() => {
+        payButtonRef.current?.focus();
+      }, 100);
+    }
+  }, [user]);
+
+  // Simplified keyboard navigation - let Tab work naturally
+  useEffect(() => {
+    if (isProcessing || isZapping) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keyboard events if user is typing in input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        // Allow Escape to exit input focus
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          target.blur();
+          // Focus back on primary button
+          if (user) {
+            payButtonRef.current?.focus();
+          } else {
+            freePlayButtonRef.current?.focus();
+          }
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProcessing, isZapping, user]);
+
+  // Gamepad controls for payment gate
+  useGamepadMenu({
+    onConfirm: () => {
+      if (user) {
+        if (selectedButton === 0) handlePayment();
+        else if (gameConfig.freePlayEnabled) handleFreePlay();
+      } else {
+        handleFreePlay();
+      }
+    },
+    onNavigateUp: () => {
+      if (user && gameConfig.freePlayEnabled) {
+        setSelectedButton(0);
+        payButtonRef.current?.focus();
+      }
+    },
+    onNavigateDown: () => {
+      if (user && gameConfig.freePlayEnabled) {
+        setSelectedButton(1);
+        freePlayButtonRef.current?.focus();
+      }
+    },
+    enabled: !isProcessing && !isZapping,
+  });
 
   // Show invoice payment UI if an invoice was generated
   if (invoice) {
@@ -208,13 +248,13 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               <Button
                 ref={freePlayButtonRef}
                 onClick={handleFreePlay}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-retro focus:ring-2 focus:ring-gray-400"
+                className="w-full bg-gray-700 hover:bg-gray-600 focus:bg-gray-600 text-white font-retro focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
               >
                 <Play className="w-4 h-4 mr-2" />
-                PLAY ANONYMOUSLY
+                PLAY ANONYMOUSLY (Press Enter)
               </Button>
-              <div className="text-center text-xs text-gray-600 font-retro">
-                🎮 Press A button to start
+              <div className="text-center text-[0.65rem] text-gray-600 font-retro">
+                ⌨️ Press Enter to start • 🎮 Press A button
               </div>
             </div>
           ) : (
@@ -264,7 +304,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                   ref={payButtonRef}
                   onClick={handlePayment}
                   disabled={isProcessing || isZapping || (!webln && !activeNWC)}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-retro focus:ring-2 focus:ring-orange-400 disabled:opacity-50"
+                  className="w-full bg-orange-600 hover:bg-orange-700 focus:bg-orange-700 text-white font-retro focus:ring-4 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 transition-all"
                 >
                   <Coins className="w-4 h-4 mr-2" />
                   {isProcessing || isZapping ? 'PROCESSING...' : `ZAP ${gameConfig.costToPlay} SATS`}
@@ -275,7 +315,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                     ref={freePlayButtonRef}
                     onClick={handleFreePlay}
                     variant="outline"
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 font-retro focus:ring-2 focus:ring-gray-400"
+                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 focus:bg-gray-800 hover:border-gray-400 focus:border-gray-400 font-retro focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
                   >
                     <Play className="w-4 h-4 mr-2" />
                     PLAY FREE (DEMO)
@@ -283,8 +323,9 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 )}
               </div>
 
-              <div className="text-center text-xs text-gray-600 font-retro">
-                🎮 Use D-Pad/Stick + A button
+              <div className="text-center text-[0.65rem] text-gray-600 font-retro space-y-1">
+                <div>⌨️ Tab to navigate • Enter to select</div>
+                <div>🎮 D-Pad/Stick + A button</div>
               </div>
             </div>
           )}

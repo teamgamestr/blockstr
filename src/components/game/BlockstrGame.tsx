@@ -122,9 +122,12 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame, simulateBlock, toast]);
 
   useEffect(() => {
+    // Only attach keyboard handler when game has started
+    if (!hasStarted) return;
+
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleKeyPress]);
+  }, [handleKeyPress, hasStarted]);
 
   // Swipe controls for mobile - on entire document for easier control
   useSwipeControls({

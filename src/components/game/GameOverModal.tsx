@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -46,61 +46,23 @@ export function GameOverModal({
   const shareButtonRef = useRef<HTMLButtonElement>(null);
 
   // Calculate available buttons based on state
-  const availableButtons = (): number[] => {
+  const availableButtons = useCallback((): number[] => {
     const buttons: number[] = [];
     if (canPublish && !hasPublishedScore) buttons.push(0); // Publish
     if (canPublish && hasPublishedScore) buttons.push(3); // Share (special case)
     buttons.push(1); // Play Again
     buttons.push(2); // Logout
     return buttons;
-  };
+  }, [canPublish, hasPublishedScore]);
 
-  // Reset selected button when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedButton(0);
-    }
-  }, [isOpen]);
-
-  // Focus the selected button
-  useEffect(() => {
-    const buttons = [publishButtonRef, playAgainButtonRef, logoutButtonRef, shareButtonRef];
-    const currentButton = buttons[selectedButton]?.current;
-    if (currentButton && isOpen) {
-      currentButton.focus();
-    }
-  }, [selectedButton, isOpen, hasPublishedScore]);
-
-  // Gamepad controls for modal
-  useGamepadMenu({
-    onConfirm: () => {
-      const buttons = availableButtons();
-      const actualButton = buttons[selectedButton % buttons.length];
-
-      if (actualButton === 0) handlePublishScore();
-      else if (actualButton === 1) handleNewGame();
-      else if (actualButton === 2) handleLogout();
-      else if (actualButton === 3) handleShareScore();
-    },
-    onCancel: onClose,
-    onNavigateUp: () => {
-      const buttons = availableButtons();
-      setSelectedButton((prev) => (prev - 1 + buttons.length) % buttons.length);
-    },
-    onNavigateDown: () => {
-      const buttons = availableButtons();
-      setSelectedButton((prev) => (prev + 1) % buttons.length);
-    },
-    enabled: isOpen && !isPublishing,
-  });
-
+  // Handler functions defined first
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePublishScore = async () => {
+  const handlePublishScore = useCallback(async () => {
     if (!canPublish) return;
 
     setIsPublishing(true);
@@ -120,9 +82,9 @@ export function GameOverModal({
     } finally {
       setIsPublishing(false);
     }
-  };
+  }, [canPublish, publishScore, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration]);
 
-  const handleShareScore = async () => {
+  const handleShareScore = useCallback(async () => {
     if (!canPublish) return;
 
     setIsPublishing(true);
@@ -143,15 +105,15 @@ export function GameOverModal({
       setIsPublishing(false);
       onClose();
     }
-  };
+  }, [canPublish, publishGamePost, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration, customMessage, scoreEventId, onClose]);
 
-  const handleNewGame = () => {
+  const handleNewGame = useCallback(() => {
     setCustomMessage('');
     setHasPublishedScore(false);
     onNewGame();
-  };
+  }, [onNewGame]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     // Check where the session originated from
     const sessionOrigin = sessionStorage.getItem('blockstr_session_origin') || '/';
 
@@ -160,7 +122,105 @@ export function GameOverModal({
 
     // Redirect to the appropriate page
     window.location.href = sessionOrigin;
-  };
+  }, [loginActions]);
+
+  // Reset selected button when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedButton(0);
+    }
+  }, [isOpen]);
+
+  // Focus the first available button when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Determine which button to focus first
+    let firstButton: HTMLButtonElement | null = null;
+    if (canPublish && !hasPublishedScore) {
+      firstButton = publishButtonRef.current;
+    } else if (canPublish && hasPublishedScore) {
+      firstButton = shareButtonRef.current;
+    } else {
+      firstButton = playAgainButtonRef.current;
+    }
+
+    if (firstButton) {
+      setTimeout(() => {
+        firstButton?.focus();
+      }, 100);
+    }
+  }, [isOpen, canPublish, hasPublishedScore]);
+
+  // Keyboard navigation - simplified to not interfere with Tab
+  useEffect(() => {
+    if (!isOpen || isPublishing) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keyboard events if user is typing in textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        // Allow Escape to exit textarea focus
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          target.blur();
+          // Focus first available button
+          if (canPublish && !hasPublishedScore) {
+            publishButtonRef.current?.focus();
+          } else if (canPublish && hasPublishedScore) {
+            shareButtonRef.current?.focus();
+          } else {
+            playAgainButtonRef.current?.focus();
+          }
+        }
+        return;
+      }
+
+      // Escape to close modal
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isPublishing, canPublish, hasPublishedScore, onClose]);
+
+  // Gamepad controls for modal
+  useGamepadMenu({
+    onConfirm: () => {
+      const buttons = availableButtons();
+      const actualButton = buttons[selectedButton % buttons.length];
+
+      if (actualButton === 0) handlePublishScore();
+      else if (actualButton === 1) handleNewGame();
+      else if (actualButton === 2) handleLogout();
+      else if (actualButton === 3) handleShareScore();
+    },
+    onCancel: onClose,
+    onNavigateUp: () => {
+      const buttons = availableButtons();
+      const newIndex = (selectedButton - 1 + buttons.length) % buttons.length;
+      setSelectedButton(newIndex);
+
+      // Focus the button
+      const buttonRefs = [publishButtonRef, playAgainButtonRef, logoutButtonRef, shareButtonRef];
+      const actualButtonIndex = buttons[newIndex];
+      buttonRefs[actualButtonIndex]?.current?.focus();
+    },
+    onNavigateDown: () => {
+      const buttons = availableButtons();
+      const newIndex = (selectedButton + 1) % buttons.length;
+      setSelectedButton(newIndex);
+
+      // Focus the button
+      const buttonRefs = [publishButtonRef, playAgainButtonRef, logoutButtonRef, shareButtonRef];
+      const actualButtonIndex = buttons[newIndex];
+      buttonRefs[actualButtonIndex]?.current?.focus();
+    },
+    enabled: isOpen && !isPublishing,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -227,7 +287,7 @@ export function GameOverModal({
                   ref={shareButtonRef}
                   onClick={handleShareScore}
                   disabled={isPublishing}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white focus:ring-2 focus:ring-green-400"
+                  className="w-full bg-green-600 hover:bg-green-700 focus:bg-green-700 text-white focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
                   {isPublishing ? 'SHARING...' : 'SHARE SCORE'}
@@ -243,7 +303,7 @@ export function GameOverModal({
                 ref={publishButtonRef}
                 onClick={handlePublishScore}
                 disabled={isPublishing}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 focus:ring-2 focus:ring-blue-400"
+                className="w-full bg-blue-600 hover:bg-blue-700 focus:bg-blue-700 text-white disabled:opacity-50 focus:ring-4 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
               >
                 {isPublishing ? 'PUBLISHING...' : 'SAVE SCORE TO GAMESTR'}
               </Button>
@@ -252,7 +312,7 @@ export function GameOverModal({
             <Button
               ref={playAgainButtonRef}
               onClick={handleNewGame}
-              className="w-full bg-green-600 hover:bg-green-700 text-white focus:ring-2 focus:ring-green-400"
+              className="w-full bg-green-600 hover:bg-green-700 focus:bg-green-700 text-white focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
             >
               <Play className="w-4 h-4 mr-2" />
               PLAY AGAIN
@@ -262,7 +322,7 @@ export function GameOverModal({
               ref={logoutButtonRef}
               onClick={handleLogout}
               variant="outline"
-              className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 focus:ring-2 focus:ring-gray-400"
+              className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 focus:bg-gray-800 hover:border-gray-400 focus:border-gray-400 focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
             >
               <LogOut className="w-4 h-4 mr-2" />
               LOGOUT
@@ -275,9 +335,10 @@ export function GameOverModal({
             </div>
           )}
 
-          {/* Gamepad hint */}
-          <div className="text-center text-xs text-gray-600 font-retro">
-            🎮 Use D-Pad/Stick + A button
+          {/* Control hints */}
+          <div className="text-center text-[0.65rem] text-gray-600 font-retro space-y-1">
+            <div>⌨️ Tab to navigate • Enter to select • ESC to close</div>
+            <div>🎮 D-Pad/Stick + A button</div>
           </div>
         </div>
       </DialogContent>

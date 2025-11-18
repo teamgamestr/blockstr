@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BitcoinBlock } from '@/types/game';
+import { gameConfig } from '@/config/gameConfig';
 
 interface BitcoinBlocksHook {
   currentBlock: BitcoinBlock | null;
@@ -8,6 +9,7 @@ interface BitcoinBlocksHook {
   isLoading: boolean;
   error: string | null;
   resetBlocksFound: () => void;
+  simulateBlock: () => void; // Test mode only
 }
 
 export function useBitcoinBlocks(): BitcoinBlocksHook {
@@ -58,11 +60,19 @@ export function useBitcoinBlocks(): BitcoinBlocksHook {
     setLastSeenHash(currentBlock?.hash || null);
   }, [currentBlock?.hash]);
 
+  // Test mode: simulate a new block being found
+  const simulateBlock = useCallback(() => {
+    if (gameConfig.testMode) {
+      setBlocksFound(prev => prev + 1);
+    }
+  }, []);
+
   return {
     currentBlock: currentBlock || null,
     blocksFound,
     isLoading,
     error: error?.message || null,
-    resetBlocksFound
+    resetBlocksFound,
+    simulateBlock
   };
 }

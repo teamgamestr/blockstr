@@ -12,6 +12,7 @@ import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useGamepadControls } from '@/hooks/useGamepadControls';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
+import { gameConfig } from '@/config/gameConfig';
 
 interface BlockstrGameProps {
   className?: string;
@@ -26,7 +27,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   const gameBoardRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
-  const { currentBlock, blocksFound, resetBlocksFound } = useBitcoinBlocks();
+  const { currentBlock, blocksFound, resetBlocksFound, simulateBlock } = useBitcoinBlocks();
 
   // Refs for callbacks to avoid circular dependencies
   const toastRef = useRef(toast);
@@ -67,6 +68,18 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   // Keyboard controls
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    // Test mode: 'B' key simulates a new block being found
+    if (gameConfig.testMode && event.code === 'KeyB') {
+      event.preventDefault();
+      simulateBlock();
+      toast({
+        title: "🧪 TEST MODE: Block Simulated",
+        description: "Mempool score transferred to mined score",
+        duration: 2000,
+      });
+      return;
+    }
+
     if (!gameState.gameStarted || gameState.gameOver) return;
 
     switch (event.code) {
@@ -101,7 +114,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         pauseGame();
         break;
     }
-  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame]);
+  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame, simulateBlock, toast]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);

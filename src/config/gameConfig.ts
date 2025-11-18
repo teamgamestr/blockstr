@@ -15,6 +15,9 @@ export interface GameConfig {
   zapMemo: string; // default memo for zap payments
   freePlayEnabled: boolean; // enable free play for testing
 
+  // Testing
+  testMode: boolean; // enable test mode features (press 'B' to simulate block)
+
   // Grid dimensions
   boardWidth: number;
   boardHeight: number;
@@ -44,8 +47,11 @@ export const gameConfig: GameConfig = {
 
   // Payment
   costToPlay: 210, // 210 satoshis to play
-  zapMemo: "⚡ Blockstr - Bitcoin-Powered Tetris ⚡",
+  zapMemo: "⚡ Blockstr ⚡",
   freePlayEnabled: true, // Set to false in production
+
+  // Testing
+  testMode: true, // Set to false in production
 
   // Grid dimensions
   boardWidth: 10,

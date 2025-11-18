@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Gamepad2 } from 'lucide-react';
 import { useGamepadMenu } from '@/hooks/useGamepadMenu';
+import { gameConfig } from '@/config/gameConfig';
 
 interface HowToPlayModalProps {
   isOpen: boolean;
@@ -75,6 +76,14 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                   </div>
                   <span className="text-gray-300">Pause</span>
                 </div>
+                {gameConfig.testMode && (
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1.5 border border-yellow-600 rounded font-retro text-xs bg-yellow-900/20">
+                      B
+                    </div>
+                    <span className="text-yellow-400">🧪 Simulate block (test mode)</span>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -194,7 +194,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             BLOCKSTR
           </CardTitle>
           <CardDescription className="font-retro text-sm text-gray-400">
-            Bitcoin-Powered Tetris
+            Nostr and Bitcoin Powered Tetris
           </CardDescription>
         </CardHeader>
 
@@ -290,9 +290,10 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
           )}
 
           <div className="text-xs text-center space-y-2 text-gray-500 border-t border-gray-700 pt-4">
-            <div>🎮 Speed increases with Bitcoin blocks</div>
+            <div>🎮 Difficulty increases every 2 minutes</div>
+            <div>⛏️ Mined score transfers when Bitcoin blocks are found</div>
             <div>⭐ Bonus blocks give 10x points</div>
-            <div>📈 Scores published to Nostr</div>
+            <div>📈 Only mined scores published to Nostr</div>
           </div>
         </CardContent>
       </Card>

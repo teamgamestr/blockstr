@@ -5,6 +5,7 @@ import { NextPiecePreview } from './NextPiecePreview';
 import { PaymentGate } from './PaymentGate';
 import { GameOverModal } from './GameOverModal';
 import { HowToPlayModal } from './HowToPlayModal';
+import { BlockMinedAnimation } from './BlockMinedAnimation';
 import { GameHeader } from '@/components/GameHeader';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useBitcoinBlocks } from '@/hooks/useBitcoinBlocks';
@@ -48,11 +49,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   }, []);
 
   const handleBlockMined = useCallback(() => {
-    toastRef.current({
-      title: "⛏️ NEW BITCOIN BLOCK MINED!",
-      description: `Block #${currentBlockRef.current?.height} - Mempool score transferred!`,
-      duration: 3000,
-    });
+    // Animation now handles the visual feedback instead of toast
   }, []);
 
   const {
@@ -63,7 +60,8 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     moveLeft,
     moveRight,
     rotate,
-    hardDrop
+    hardDrop,
+    handleAnimationComplete
   } = useGameLogic(blocksFound, handleDifficultyIncrease, handleBlockMined);
 
   // Keyboard controls
@@ -378,6 +376,12 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         duration={gameDuration}
         onNewGame={handleNewGame}
         onClose={handleCloseModal}
+      />
+
+      {/* Block Mined Animation */}
+      <BlockMinedAnimation
+        isActive={gameState.showBlockAnimation}
+        onComplete={handleAnimationComplete}
       />
     </div>
   );

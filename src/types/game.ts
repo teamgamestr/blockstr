@@ -37,6 +37,7 @@ export interface GameState {
   bitcoinBlocks: number; // Number of Bitcoin blocks found since game start
   lastBlockHash: string | null; // Last Bitcoin block hash seen
   timeToNextLevel: number; // Milliseconds until next difficulty adjustment
+  showBlockAnimation: boolean; // Show block mined animation
 }
 
 export interface BitcoinBlock {

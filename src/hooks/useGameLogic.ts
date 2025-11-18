@@ -119,7 +119,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     dropSpeed: gameConfig.initialSpeed,
     bitcoinBlocks: 0,
     lastBlockHash: null,
-    timeToNextLevel: gameConfig.levelDuration
+    timeToNextLevel: gameConfig.levelDuration,
+    showBlockAnimation: false
   });
 
   const dropTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -183,12 +184,11 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
   // Transfer scores when Bitcoin blocks are found
   useEffect(() => {
     if (bitcoinBlocks > gameState.bitcoinBlocks && gameState.gameStarted) {
+      // Trigger animation
       setGameState(prev => ({
         ...prev,
-        bitcoinBlocks,
-        // Transfer mempool score to mined score when a new block is found
-        minedScore: prev.minedScore + prev.mempoolScore,
-        mempoolScore: 0 // Reset mempool score
+        showBlockAnimation: true,
+        bitcoinBlocks
       }));
 
       // Trigger block mined callback
@@ -197,6 +197,34 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
       }
     }
   }, [bitcoinBlocks, gameState.bitcoinBlocks, gameState.gameStarted, onBlockMined]);
+
+  // Handle animation completion - clear blocks and transfer score
+  const handleAnimationComplete = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      board: createEmptyBoard(), // Clear all blocks
+      currentPiece: null, // Remove current piece
+      // Transfer mempool score to mined score
+      minedScore: prev.minedScore + prev.mempoolScore,
+      mempoolScore: 0, // Reset mempool score
+      showBlockAnimation: false
+    }));
+
+    // Generate new piece after clearing
+    setTimeout(() => {
+      setGameState(prev => {
+        const shouldBeBonus = Math.random() < (1 / gameConfig.bonusBlockChance);
+        const newCurrentPiece = getRandomTetromino(shouldBeBonus);
+        const newNextPiece = getRandomTetromino(Math.random() < (1 / gameConfig.bonusBlockChance));
+
+        return {
+          ...prev,
+          currentPiece: newCurrentPiece,
+          nextPiece: newNextPiece
+        };
+      });
+    }, 100);
+  }, []);
 
   const dropPiece = useCallback(() => {
     setGameState(prev => {
@@ -274,7 +302,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
       dropSpeed: gameConfig.initialSpeed,
       bitcoinBlocks: 0,
       lastBlockHash: null,
-      timeToNextLevel: gameConfig.levelDuration
+      timeToNextLevel: gameConfig.levelDuration,
+      showBlockAnimation: false
     });
   }, []);
 
@@ -301,7 +330,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
       dropSpeed: gameConfig.initialSpeed,
       bitcoinBlocks: 0,
       lastBlockHash: null,
-      timeToNextLevel: gameConfig.levelDuration
+      timeToNextLevel: gameConfig.levelDuration,
+      showBlockAnimation: false
     });
   }, []);
 
@@ -395,6 +425,7 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     moveLeft,
     moveRight,
     rotate,
-    hardDrop
+    hardDrop,
+    handleAnimationComplete
   };
 }

@@ -1,5 +1,6 @@
 import { useNostr } from '@nostrify/react';
 import { NLogin, useNostrLogin } from '@nostrify/react/login';
+import { generateSecretKey, nip19 } from 'nostr-tools';
 
 // NOTE: This file should not be edited except for adding new login methods.
 
@@ -49,6 +50,24 @@ export function useLoginActions() {
     // Login with a NIP-07 browser extension
     async extension(): Promise<void> {
       const login = await NLogin.fromExtension();
+      addLogin(login);
+    },
+    // Login anonymously with a temporary keypair (optionally with a specific pubkey for NIP-05 verified users)
+    anonymous(pubkey?: string): void {
+      // If a pubkey is provided (from NIP-05), we create a temporary keypair
+      // but store the NIP-05 verified pubkey in the login data for score attribution
+      // Otherwise generate a new temporary keypair for truly anonymous play
+      const secretKey = generateSecretKey();
+      const nsec = nip19.nsecEncode(secretKey);
+      const login = NLogin.fromNsec(nsec);
+
+      // If a verified pubkey is provided, we'll store it separately
+      // This can be used later when publishing scores
+      if (pubkey) {
+        // Store the verified pubkey in localStorage for score attribution
+        localStorage.setItem('blockstr_verified_pubkey', pubkey);
+      }
+
       addLogin(login);
     },
     // Log out the current user

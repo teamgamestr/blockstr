@@ -39,6 +39,13 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     currentBlockRef.current = currentBlock;
   }, [toast, currentBlock]);
 
+  // Set session origin if not already set (for main page sessions)
+  useEffect(() => {
+    if (!sessionStorage.getItem('blockstr_session_origin')) {
+      sessionStorage.setItem('blockstr_session_origin', '/');
+    }
+  }, []);
+
   // Callbacks for game events
   const handleDifficultyIncrease = useCallback((newLevel: number) => {
     toastRef.current({

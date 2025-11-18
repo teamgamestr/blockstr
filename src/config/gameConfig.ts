@@ -47,7 +47,7 @@ export const gameConfig: GameConfig = {
 
   // Payment
   costToPlay: 210, // 210 satoshis to play
-  zapMemo: "⚡ Blockstr ⚡",
+  zapMemo: "⚡ Playin' Blockstr ⚡",
   freePlayEnabled: true, // Set to false in production
 
   // Testing

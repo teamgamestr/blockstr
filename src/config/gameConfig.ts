@@ -12,7 +12,8 @@ export interface GameConfig {
 
   // Payment
   costToPlay: number; // satoshis required to play
-  zapMemo: string; // memo for zap payments
+  zapMemo: string; // default memo for zap payments
+  freePlayEnabled: boolean; // enable free play for testing
 
   // Grid dimensions
   boardWidth: number;
@@ -42,8 +43,9 @@ export const gameConfig: GameConfig = {
   bonusBlockChance: 100, // 1 in 100 chance for bonus block
 
   // Payment
-  costToPlay: 21, // 21 satoshis to play
-  zapMemo: "⚡ Blockstr Game Payment ⚡",
+  costToPlay: 210, // 210 satoshis to play
+  zapMemo: "⚡ Blockstr - Bitcoin-Powered Tetris ⚡",
+  freePlayEnabled: true, // Set to false in production
 
   // Grid dimensions
   boardWidth: 10,

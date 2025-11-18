@@ -56,18 +56,19 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup and production deployment 
 ## 🎯 How to Play
 
 1. **Login** with Nostr (browser extension or nsec bunker) or play anonymously
-2. **Pay to Play** with Lightning Network (or use demo mode)
-3. **Classic Tetris** controls:
+2. **Connect Wallet** (WebLN extension or NWC) for Lightning payments
+3. **Zap to Play**: Send 210 sats to the Blockstr account to start (or use free play in demo mode)
+4. **Classic Tetris** controls:
    - Arrow keys or WASD for movement
    - Up arrow or W to rotate pieces
    - Down arrow or S to soft drop
    - Space bar for hard drop
    - P to pause
-4. **Difficulty Increases** automatically every 2 minutes
-5. **Mempool Score**: Points accumulate in your mempool score during gameplay
-6. **Mined Score**: When Bitcoin blocks are found, mempool score transfers to mined score
-7. **Bonus Points** for clearing lines containing golden bonus blocks (★)
-8. **Score Publishing**: Only mined scores count and are published to gamestr.io
+5. **Difficulty Increases** automatically every 2 minutes
+6. **Mempool Score**: Points accumulate in your mempool score during gameplay
+7. **Mined Score**: When Bitcoin blocks are found, mempool score transfers to mined score
+8. **Bonus Points** for clearing lines containing golden bonus blocks (★)
+9. **Score Publishing**: Only mined scores count and are published to gamestr.io
 
 ## 🔧 Configuration
 
@@ -76,9 +77,15 @@ Game settings are centralized in `/src/config/gameConfig.ts`:
 - Initial game speed and acceleration per level
 - Level duration (2 minutes per level)
 - Scoring multipliers and bonus chances
-- Payment amounts and Lightning settings
+- **Payment settings**:
+  - `costToPlay`: Fee in satoshis (default: 210 sats)
+  - `zapMemo`: Default zap message (customizable by players)
+  - `freePlayEnabled`: Toggle free play for testing (set to `false` in production)
+  - `blockstrPubkey`: Nostr pubkey receiving payments
 - Board dimensions and visual settings
 - Game identity and version
+
+See [PAYMENT_SYSTEM.md](PAYMENT_SYSTEM.md) for detailed payment configuration.
 
 ### Score Signing Configuration
 
@@ -129,10 +136,13 @@ Blockstr implements a dual-score system with Bitcoin integration:
 
 ## ⚡ Lightning Integration
 
-- **Pay-to-Play**: Small Lightning payments to start games
-- **WebLN Support**: Browser extension wallet integration
-- **NWC Compatible**: Nostr Wallet Connect support
-- **Demo Mode**: Free play option for testing
+- **Pay-to-Play**: Zap 210 sats to the Blockstr account to start games
+- **WebLN Support**: Browser extension wallet integration (Alby, Mutiny, etc.)
+- **NWC Compatible**: Nostr Wallet Connect support for remote wallets
+- **Custom Messages**: Players can customize zap messages
+- **Demo Mode**: Free play option for testing (configurable in `gameConfig.ts`)
+- **Multiple Wallets**: Support for multiple NWC connections with wallet switching
+- **Fallback Payment**: Manual invoice payment if automatic methods fail
 
 ## 🎨 Visual Design
 

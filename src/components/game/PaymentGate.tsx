@@ -255,7 +255,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </Button>
               <Button
                 onClick={() => {
-                  // User confirms payment - same flow as WebLN success
+                  // EXACT same flow as WebLN - just call success callback
                   resetInvoice();
                   setIsProcessing(false);
                   toast({
@@ -271,7 +271,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </Button>
             </div>
 
-            {/* Manual payment note */}
+            {/* Payment note */}
             <div className="text-center space-y-2 pt-2">
               <div className="text-xs text-gray-500 font-retro">
                 Amount: {gameConfig.costToPlay} sats

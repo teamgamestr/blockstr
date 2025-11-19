@@ -61,6 +61,22 @@ export function useZaps(
           '#a': [`${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`],
         }], { signal });
         return events;
+      } else if (actualTarget.kind === 0) {
+        // Profile zap - query by pubkey
+        console.log('[useZaps] Querying for profile zaps:', {
+          pubkey: actualTarget.pubkey,
+          filter: { kinds: [9735], '#p': [actualTarget.pubkey] }
+        });
+        const events = await nostr.query([{
+          kinds: [9735],
+          '#p': [actualTarget.pubkey],
+        }], { signal });
+        console.log('[useZaps] Found zap receipts:', events.length, events.map(e => ({
+          id: e.id.substring(0, 8),
+          created_at: e.created_at,
+          tags: e.tags,
+        })));
+        return events;
       } else {
         // Regular event
         const events = await nostr.query([{
@@ -76,9 +92,11 @@ export function useZaps(
   // Process zap events into simple counts and totals
   const { zapCount, totalSats, zaps } = useMemo(() => {
     if (!zapEvents || !Array.isArray(zapEvents) || !actualTarget) {
+      console.log('[useZaps] No zap events to process');
       return { zapCount: 0, totalSats: 0, zaps: [] };
     }
 
+    console.log('[useZaps] Processing zap events:', zapEvents.length);
     let count = 0;
     let sats = 0;
 
@@ -127,6 +145,7 @@ export function useZaps(
     });
 
 
+    console.log('[useZaps] Final counts:', { zapCount: count, totalSats: sats });
     return { zapCount: count, totalSats: sats, zaps: zapEvents };
   }, [zapEvents, actualTarget]);
 
@@ -160,9 +179,15 @@ export function useZaps(
 
     try {
       if (!author.data || !author.data?.metadata || !author.data?.event ) {
+        console.error('Author data missing:', {
+          hasData: !!author.data,
+          hasMetadata: !!author.data?.metadata,
+          hasEvent: !!author.data?.event,
+          pubkey: actualTarget.pubkey,
+        });
         toast({
-          title: 'Author not found',
-          description: 'Could not find the author of this item.',
+          title: 'Blockstr profile not found',
+          description: 'The Blockstr account needs a Nostr profile with a Lightning address (lud16) configured.',
           variant: 'destructive',
         });
         setIsZapping(false);
@@ -171,9 +196,10 @@ export function useZaps(
 
       const { lud06, lud16 } = author.data.metadata;
       if (!lud06 && !lud16) {
+        console.error('Lightning address missing from profile:', author.data.metadata);
         toast({
-          title: 'Lightning address not found',
-          description: 'The author does not have a lightning address configured.',
+          title: 'Lightning address not configured',
+          description: 'The Blockstr account profile needs a Lightning address (lud16 field).',
           variant: 'destructive',
         });
         setIsZapping(false);
@@ -263,7 +289,7 @@ export function useZaps(
                 });
               }
             }
-            
+
             if (webln) {  // Try WebLN next
               try {
                 await webln.sendPayment(newInvoice);

@@ -9,10 +9,11 @@ import { useWallet } from '@/hooks/useWallet';
 import { useZaps } from '@/hooks/useZaps';
 import { useToast } from '@/hooks/useToast';
 import { gameConfig } from '@/config/gameConfig';
-import { Coins, Zap, Play, Wallet as WalletIcon } from 'lucide-react';
+import { Coins, Zap, Play, Wallet as WalletIcon, Copy, X } from 'lucide-react';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { WalletModal } from '@/components/WalletModal';
-import type { Event as NostrEvent } from 'nostr-tools';
+import QRCode from 'qrcode';
+import type { Event as NostrToolsEvent } from 'nostr-tools';
 
 interface PaymentGateProps {
   onPaymentComplete: () => void;
@@ -23,6 +24,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedButton, setSelectedButton] = useState(0); // 0: Pay, 1: Free Play
   const [customMemo, setCustomMemo] = useState(gameConfig.zapMemo);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
@@ -31,7 +33,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const freePlayButtonRef = useRef<HTMLButtonElement>(null);
 
   // Create a mock event for the Blockstr account to zap to
-  const blockstrEvent: NostrEvent = {
+  const blockstrEvent: NostrToolsEvent = {
     id: 'blockstr-payment',
     pubkey: gameConfig.blockstrPubkey,
     created_at: Math.floor(Date.now() / 1000),
@@ -46,7 +48,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     webln,
     activeNWC,
     () => {
-      // On successful zap
+      // On successful zap (WebLN/NWC)
       toast({
         title: 'Payment successful!',
         description: 'Starting game...',
@@ -175,27 +177,68 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     enabled: !isProcessing && !isZapping,
   });
 
+  // Generate QR code when invoice changes
+  useEffect(() => {
+    if (invoice) {
+      QRCode.toDataURL(invoice.toUpperCase(), {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+      })
+        .then((url) => setQrCodeDataUrl(url))
+        .catch((err) => console.error('QR code generation failed:', err));
+    } else {
+      setQrCodeDataUrl('');
+    }
+  }, [invoice]);
+
   // Show invoice payment UI if an invoice was generated
   if (invoice) {
     return (
       <div className={className}>
-        <Card className="bg-black border-yellow-500 border-2">
-          <CardHeader className="text-center">
-            <CardTitle className="font-retro text-2xl text-yellow-400">
-              PAY INVOICE
-            </CardTitle>
-            <CardDescription className="font-retro text-sm text-gray-400">
+        <Card className="bg-black border-yellow-500 border-2 max-w-md mx-auto">
+          <CardHeader className="text-center pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-retro text-xl text-yellow-400 flex-1">
+                PAY INVOICE
+              </CardTitle>
+              <Button
+                onClick={() => {
+                  resetInvoice();
+                  setIsProcessing(false);
+                }}
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <CardDescription className="font-retro text-xs text-gray-400">
               Scan QR code or copy invoice
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-white rounded">
-              {/* QR code would go here - for now just show the invoice */}
-              <div className="text-xs break-all text-black font-mono">
-                {invoice}
+            {/* QR Code */}
+            {qrCodeDataUrl ? (
+              <div className="flex justify-center p-4 bg-white rounded-lg">
+                <img
+                  src={qrCodeDataUrl}
+                  alt="Lightning Invoice QR Code"
+                  className="w-full max-w-[280px]"
+                />
               </div>
-            </div>
-            <div className="flex gap-2">
+            ) : (
+              <div className="flex justify-center p-12 bg-white rounded-lg">
+                <div className="text-sm text-gray-500">Generating QR code...</div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => {
                   navigator.clipboard.writeText(invoice);
@@ -204,20 +247,38 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                     description: 'Invoice copied to clipboard',
                   });
                 }}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 font-retro"
+                variant="outline"
+                className="font-retro text-sm border-gray-600 text-gray-300 hover:bg-gray-800"
               >
-                COPY INVOICE
+                <Copy className="w-4 h-4 mr-2" />
+                COPY
               </Button>
               <Button
                 onClick={() => {
+                  // User confirms payment - same flow as WebLN success
                   resetInvoice();
                   setIsProcessing(false);
+                  toast({
+                    title: 'Payment confirmed!',
+                    description: 'Starting game...',
+                  });
+                  onPaymentComplete();
                 }}
-                variant="outline"
-                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800 font-retro"
+                className="bg-green-600 hover:bg-green-700 font-retro text-sm"
               >
-                CANCEL
+                <Zap className="w-4 h-4 mr-2" />
+                I PAID
               </Button>
+            </div>
+
+            {/* Manual payment note */}
+            <div className="text-center space-y-2 pt-2">
+              <div className="text-xs text-gray-500 font-retro">
+                Amount: {gameConfig.costToPlay} sats
+              </div>
+              <div className="text-[0.65rem] text-gray-600">
+                Click "I PAID" after payment completes
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -227,7 +288,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
 
   return (
     <div className={className}>
-      <Card className="bg-black border-green-500 border-2">
+      <Card className="bg-black border-green-500 border-2 max-w-md mx-auto">
         <CardHeader className="text-center">
           <CardTitle className="font-retro text-2xl text-green-400 flex items-center justify-center gap-2">
             <Zap className="w-8 h-8" />

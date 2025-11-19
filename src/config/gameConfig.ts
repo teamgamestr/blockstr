@@ -48,10 +48,10 @@ export const gameConfig: GameConfig = {
   // Payment
   costToPlay: 210, // 210 satoshis to play
   zapMemo: "⚡ Playin' Blockstr ⚡",
-  freePlayEnabled: true, // Set to false in production
+  freePlayEnabled: false, // Set to false in production
 
   // Testing
-  testMode: true, // Set to false in production
+  testMode: true, // Set to false in production, enables B for blocks
 
   // Grid dimensions
   boardWidth: 10,

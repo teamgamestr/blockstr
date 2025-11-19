@@ -16,7 +16,8 @@ export function useZaps(
   target: Event | Event[],
   webln: WebLNProvider | null,
   _nwcConnection: NWCConnection | null,
-  onZapSuccess?: () => void
+  onZapSuccess?: () => void,
+  skipAutomaticPayment?: boolean
 ) {
   const { nostr } = useNostr();
   const { toast } = useToast();
@@ -252,6 +253,13 @@ export function useZaps(
             const newInvoice = responseData.pr;
             if (!newInvoice || typeof newInvoice !== 'string') {
               throw new Error('Lightning service did not return a valid invoice');
+            }
+
+            // Skip automatic payment methods if requested (e.g., in conference mode)
+            if (skipAutomaticPayment) {
+              setInvoice(newInvoice);
+              setIsZapping(false);
+              return;
             }
 
             // Get the current active NWC connection dynamically

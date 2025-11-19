@@ -29,6 +29,15 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
 
+  // Detect conference mode
+  const isConferenceMode = sessionStorage.getItem('blockstr_session_origin') === '/conference';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[PaymentGate] Conference mode:', isConferenceMode);
+    console.log('[PaymentGate] Session origin:', sessionStorage.getItem('blockstr_session_origin'));
+  }, [isConferenceMode]);
+
   const payButtonRef = useRef<HTMLButtonElement>(null);
   const freePlayButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -54,7 +63,8 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         description: 'Starting game...',
       });
       onPaymentComplete();
-    }
+    },
+    isConferenceMode // Skip automatic payment in conference mode
   );
 
   // Handler functions defined first
@@ -68,7 +78,8 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       return;
     }
 
-    if (!webln && !activeNWC) {
+    // In conference mode, skip wallet checks and go straight to invoice
+    if (!isConferenceMode && !webln && !activeNWC) {
       toast({
         title: 'Wallet not connected',
         description: 'Please connect a Lightning wallet to continue.',
@@ -103,7 +114,15 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [user, webln, activeNWC, toast, resetInvoice, zap, customMemo, invoice]);
+  }, [user, isConferenceMode, webln, activeNWC, toast, resetInvoice, zap, customMemo, invoice]);
+
+  // Auto-generate invoice in conference mode when user is logged in
+  useEffect(() => {
+    if (isConferenceMode && user && !invoice && !isProcessing && !isZapping) {
+      console.log('[PaymentGate] Auto-generating invoice for conference mode');
+      handlePayment();
+    }
+  }, [isConferenceMode, user, invoice, isProcessing, isZapping, handlePayment]);
 
   const handleFreePlay = useCallback(() => {
     // For anonymous users or when free play is enabled
@@ -323,12 +342,15 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               <div className="text-center">
                 <div className="text-lg font-retro text-white mb-2">Ready to Play!</div>
                 <div className="text-sm text-gray-400">
-                  Zap {gameConfig.costToPlay} sats to start
+                  {isConferenceMode
+                    ? `Scan QR code to pay ${gameConfig.costToPlay} sats`
+                    : `Zap ${gameConfig.costToPlay} sats to start`
+                  }
                 </div>
               </div>
 
-              {/* Wallet connection status */}
-              {!webln && !activeNWC && (
+              {/* Wallet connection status - hide in conference mode */}
+              {!isConferenceMode && !webln && !activeNWC && (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-600 rounded text-center">
                   <p className="text-xs text-yellow-400 font-retro mb-2">
                     ⚠️ NO WALLET CONNECTED
@@ -346,29 +368,36 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 </div>
               )}
 
-              {/* Custom memo input */}
-              <div className="space-y-2">
-                <Label htmlFor="memo" className="text-xs text-gray-400 font-retro">
-                  ZAP MESSAGE (OPTIONAL)
-                </Label>
-                <Input
-                  id="memo"
-                  value={customMemo}
-                  onChange={(e) => setCustomMemo(e.target.value)}
-                  placeholder={gameConfig.zapMemo}
-                  className="bg-gray-900 border-gray-700 text-white font-retro text-xs"
-                />
-              </div>
+              {/* Custom memo input - hide in conference mode */}
+              {!isConferenceMode && (
+                <div className="space-y-2">
+                  <Label htmlFor="memo" className="text-xs text-gray-400 font-retro">
+                    ZAP MESSAGE (OPTIONAL)
+                  </Label>
+                  <Input
+                    id="memo"
+                    value={customMemo}
+                    onChange={(e) => setCustomMemo(e.target.value)}
+                    placeholder={gameConfig.zapMemo}
+                    className="bg-gray-900 border-gray-700 text-white font-retro text-xs"
+                  />
+                </div>
+              )}
 
               <div className="grid gap-3">
                 <Button
                   ref={payButtonRef}
                   onClick={handlePayment}
-                  disabled={isProcessing || isZapping || (!webln && !activeNWC)}
+                  disabled={isProcessing || isZapping || (!isConferenceMode && !webln && !activeNWC)}
                   className="w-full bg-orange-600 hover:bg-orange-700 focus:bg-orange-700 text-white font-retro focus:ring-4 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 transition-all"
                 >
                   <Coins className="w-4 h-4 mr-2" />
-                  {isProcessing || isZapping ? 'PROCESSING...' : `ZAP ${gameConfig.costToPlay} SATS`}
+                  {isProcessing || isZapping
+                    ? 'PROCESSING...'
+                    : isConferenceMode
+                      ? `GET INVOICE (${gameConfig.costToPlay} SATS)`
+                      : `ZAP ${gameConfig.costToPlay} SATS`
+                  }
                 </Button>
 
                 {gameConfig.freePlayEnabled && (
@@ -385,8 +414,14 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </div>
 
               <div className="text-center text-[0.65rem] text-gray-600 font-retro space-y-1">
-                <div>⌨️ Tab to navigate • Enter to select</div>
-                <div>🎮 D-Pad/Stick + A button</div>
+                {isConferenceMode ? (
+                  <div>📱 Scan the QR code with your Lightning wallet</div>
+                ) : (
+                  <>
+                    <div>⌨️ Tab to navigate • Enter to select</div>
+                    <div>🎮 D-Pad/Stick + A button</div>
+                  </>
+                )}
               </div>
             </div>
           )}

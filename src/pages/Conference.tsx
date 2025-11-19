@@ -33,6 +33,12 @@ const Conference = () => {
     description: 'Quick login options for conference and kiosk displays',
   });
 
+  // Debug: Log when Conference page loads
+  useEffect(() => {
+    console.log('[Conference] Page loaded');
+    console.log('[Conference] Current session origin:', sessionStorage.getItem('blockstr_session_origin'));
+  }, []);
+
   const generateQrCode = useCallback(async () => {
     setIsGeneratingQr(true);
     setError('');
@@ -145,16 +151,18 @@ const Conference = () => {
                       bunkerPubkey: remoteSignerPubkey
                     });
 
+                    // Set session origin BEFORE adding login
+                    sessionStorage.setItem('blockstr_session_origin', '/conference');
+                    console.log('[Conference] Set session origin to /conference');
+
                     // Add the login
                     addLogin(bunkerLogin);
 
                     await new Promise(resolve => setTimeout(resolve, 100));
 
-                    // Set session origin for logout redirect
-                    sessionStorage.setItem('blockstr_session_origin', '/conference');
-
                     // Close dialog and redirect to game
                     setShowQrDialog(false);
+                    console.log('[Conference] Redirecting to /');
                     window.location.href = '/';
                   } catch (e: unknown) {
                     const error = e as Error;
@@ -231,13 +239,15 @@ const Conference = () => {
         throw new Error('NIP-05 identifier not found');
       }
 
+      // Set session origin BEFORE login
+      sessionStorage.setItem('blockstr_session_origin', '/conference');
+      console.log('[Conference] Set session origin to /conference (NIP-05)');
+
       // Create a temporary anonymous account but with the NIP-05 verified pubkey
       login.anonymous(pubkey);
 
-      // Set session origin for logout redirect
-      sessionStorage.setItem('blockstr_session_origin', '/conference');
-
       // Redirect to game
+      console.log('[Conference] Redirecting to / (NIP-05)');
       window.location.href = '/';
     } catch (e: unknown) {
       const error = e as Error;
@@ -249,11 +259,13 @@ const Conference = () => {
   };
 
   const handleAnonymousLogin = () => {
+    // Set session origin BEFORE login
+    sessionStorage.setItem('blockstr_session_origin', '/conference');
+    console.log('[Conference] Set session origin to /conference (Anonymous)');
+
     login.anonymous();
 
-    // Set session origin for logout redirect
-    sessionStorage.setItem('blockstr_session_origin', '/conference');
-
+    console.log('[Conference] Redirecting to / (Anonymous)');
     window.location.href = '/';
   };
 

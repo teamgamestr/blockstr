@@ -46,58 +46,116 @@ export function useZaps(
     };
   }, []);
 
-  const { data: zapEvents, ...query } = useQuery<NostrEvent[], Error>({
-    queryKey: ['zaps', actualTarget?.id],
+  const zapTargetKey = useMemo(() => {
+    if (!actualTarget) return null;
+
+    if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
+      const identifier = actualTarget.tags.find((tag) => tag[0] === 'd')?.[1] ?? '';
+      return `a:${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`;
+    }
+
+    if (actualTarget.kind === 0) {
+      return `profile:${actualTarget.pubkey}`;
+    }
+
+    return `event:${actualTarget.id}`;
+  }, [actualTarget]);
+
+  const zapFilters = useMemo(() => {
+    if (!actualTarget) return [];
+
+    if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
+      const identifier = actualTarget.tags.find((tag) => tag[0] === 'd')?.[1] ?? '';
+      return [
+        {
+          kinds: [9735],
+          '#a': [`${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`],
+          limit: 200,
+        },
+      ];
+    }
+
+    if (actualTarget.kind === 0) {
+      return [
+        {
+          kinds: [9735],
+          '#p': [actualTarget.pubkey],
+          limit: 200,
+        },
+      ];
+    }
+
+    return [
+      {
+        kinds: [9735],
+        '#e': [actualTarget.id],
+        limit: 200,
+      },
+    ];
+  }, [actualTarget]);
+
+  const zapQueryKey = useMemo(() => ['zaps', zapTargetKey ?? 'unknown'], [zapTargetKey]);
+
+  const { data: zapEvents = [], ...query } = useQuery<NostrEvent[], Error>({
+    queryKey: zapQueryKey,
     staleTime: 30000, // 30 seconds
-    refetchInterval: (query) => {
+    refetchInterval: (observer) => {
       // Only refetch if the query is currently being observed (component is mounted)
-      return query.getObserversCount() > 0 ? 60000 : false;
+      return observer.getObserversCount() > 0 ? 60000 : false;
     },
     queryFn: async (c) => {
-      if (!actualTarget) return [];
+      if (!actualTarget || zapFilters.length === 0) return [];
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      // Query for zap receipts for this specific event
-      if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
-        // Addressable event
-        const identifier = actualTarget.tags.find((t) => t[0] === 'd')?.[1] || '';
-        const events = await nostr.query([{
-          kinds: [9735],
-          '#a': [`${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`],
-        }], { signal });
-        return events;
-      } else if (actualTarget.kind === 0) {
-        // Profile zap - query by pubkey
-        console.log('[useZaps] Querying for profile zaps:', {
-          pubkey: actualTarget.pubkey,
-          filter: { kinds: [9735], '#p': [actualTarget.pubkey] }
-        });
-        const events = await nostr.query([{
-          kinds: [9735],
-          '#p': [actualTarget.pubkey],
-        }], { signal });
-        console.log('[useZaps] Found zap receipts:', events.length, events.map(e => ({
-          id: e.id.substring(0, 8),
-          created_at: e.created_at,
-          tags: e.tags,
-        })));
-        return events;
-      } else {
-        // Regular event
-        const events = await nostr.query([{
-          kinds: [9735],
-          '#e': [actualTarget.id],
-        }], { signal });
-        return events;
-      }
+      const events = await nostr.query(zapFilters, { signal });
+      return events;
     },
-    enabled: !!actualTarget?.id,
+    enabled: !!actualTarget?.id && zapFilters.length > 0,
   });
+
+  useEffect(() => {
+    if (!actualTarget || zapFilters.length === 0 || !zapTargetKey) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const since = Math.floor(Date.now() / 1000);
+    const realtimeFilters = zapFilters.map(({ limit, ...filter }) => ({
+      ...filter,
+      since,
+    }));
+    const sub = nostr.req(realtimeFilters, { signal: controller.signal });
+
+    (async () => {
+      try {
+        for await (const msg of sub) {
+          if (msg[0] !== 'EVENT') continue;
+          const event = msg[2] as NostrEvent;
+
+          queryClient.setQueryData<NostrEvent[]>(zapQueryKey, (existing = []) => {
+            if (existing.some((item) => item.id === event.id)) {
+              return existing;
+            }
+
+            return [...existing, event].sort((a, b) => a.created_at - b.created_at);
+          });
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.warn('[useZaps] Zap subscription error', error);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [actualTarget, zapFilters, zapTargetKey, nostr, queryClient, zapQueryKey]);
 
   // Process zap events into simple counts and totals
   const { zapCount, totalSats, zaps } = useMemo(() => {
-    if (!zapEvents || !Array.isArray(zapEvents) || !actualTarget) {
+    if (!Array.isArray(zapEvents) || !actualTarget) {
       console.log('[useZaps] No zap events to process');
       return { zapCount: 0, totalSats: 0, zaps: [] };
     }

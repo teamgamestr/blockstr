@@ -28,15 +28,43 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
+  const [isConferenceMode, setIsConferenceMode] = useState(false);
   const [trackedInvoice, setTrackedInvoice] = useState<string | null>(null);
   const [isAwaitingReceipt, setIsAwaitingReceipt] = useState(false);
   const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Detect conference mode
-  const isConferenceMode = sessionStorage.getItem('blockstr_session_origin') === '/conference';
+  // Detect conference mode and ensure the root route stays on the regular payment flow
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const determineMode = () => {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      const storedOrigin = sessionStorage.getItem('blockstr_session_origin');
+      const cameFromConference = typeof document !== 'undefined' && !!document.referrer && document.referrer.includes('/conference');
+      const queryConference = params.get('mode') === 'conference' || params.get('conference') === '1';
+
+      if (queryConference || path === '/conference') {
+        sessionStorage.setItem('blockstr_session_origin', '/conference');
+        setIsConferenceMode(true);
+        return;
+      }
+
+      if (path === '/' && storedOrigin === '/conference' && !cameFromConference) {
+        sessionStorage.setItem('blockstr_session_origin', '/');
+        setIsConferenceMode(false);
+        return;
+      }
+
+      setIsConferenceMode(storedOrigin === '/conference');
+    };
+
+    determineMode();
+  }, []);
 
   // Debug logging
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     console.log('[PaymentGate] Conference mode:', isConferenceMode);
     console.log('[PaymentGate] Session origin:', sessionStorage.getItem('blockstr_session_origin'));
   }, [isConferenceMode]);
@@ -196,13 +224,17 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       if (result?.invoice) {
         if (result.autoPaid) {
           startReceiptWait(result.invoice, 'auto');
+        } else if (isConferenceMode) {
+          startReceiptWait(result.invoice, 'manual');
+          toast({
+            title: 'Scan to pay',
+            description: `Show this QR code to your Lightning wallet to pay ${gameConfig.costToPlay} sats. We'll monitor for the receipt automatically.`,
+          });
         } else {
           trackInvoice(result.invoice);
           toast({
             title: 'Manual payment required',
-            description: isConferenceMode
-              ? `Scan the QR code to pay ${gameConfig.costToPlay} sats.`
-              : 'Automatic payment failed. Please pay the invoice to continue.',
+            description: 'Automatic payment failed. Please pay the invoice to continue.',
           });
         }
       }
@@ -317,6 +349,74 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   }, [invoice]);
 
   // Show invoice payment UI if an invoice was generated
+  if (invoice && isConferenceMode) {
+    return (
+      <div className={className}>
+        <Card className="bg-black border-green-500 border-2 max-w-md mx-auto">
+          <CardHeader className="text-center pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-retro text-xl text-green-400 flex-1">
+                SCAN TO PLAY
+              </CardTitle>
+              <Button
+                onClick={() => {
+                  resetInvoice();
+                  setIsProcessing(false);
+                }}
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <CardDescription className="font-retro text-xs text-gray-400">
+              Hold your wallet up to pay {gameConfig.costToPlay} sats
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {qrCodeDataUrl ? (
+              <div className="flex justify-center p-4 bg-white rounded-lg">
+                <img
+                  src={qrCodeDataUrl}
+                  alt="Lightning Invoice QR Code"
+                  className="w-full max-w-[280px]"
+                />
+              </div>
+            ) : (
+              <div className="flex justify-center p-12 bg-white rounded-lg">
+                <div className="text-sm text-gray-500">Generating QR code...</div>
+              </div>
+            )}
+
+            <div className="rounded border border-blue-500/60 bg-blue-900/20 px-4 py-3 text-xs text-blue-100 font-retro flex items-center justify-center gap-3">
+              {isAwaitingReceipt ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Waiting for zap receipt...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4" />
+                  Listening for payment...
+                </>
+              )}
+            </div>
+
+            <div className="text-center space-y-2 pt-2">
+              <div className="text-xs text-gray-500 font-retro">
+                Amount: {gameConfig.costToPlay} sats
+              </div>
+              <div className="text-[0.65rem] text-gray-400">
+                We will automatically detect your zap receipt once payment completes.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (invoice) {
     return (
       <div className={className}>

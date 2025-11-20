@@ -184,11 +184,22 @@ export function useZaps(
     }
 
     try {
-      if (!author.data || !author.data?.metadata || !author.data?.event) {
+      let authorData = author.data;
+
+      if (!authorData || !authorData.metadata || !authorData.event) {
+        try {
+          const refreshed = await author.refetch({ throwOnError: false });
+          authorData = refreshed.data ?? authorData;
+        } catch (err) {
+          console.warn('Failed to refetch author metadata before zapping:', err);
+        }
+      }
+
+      if (!authorData || !authorData.metadata || !authorData.event) {
         console.error('Author data missing:', {
-          hasData: !!author.data,
-          hasMetadata: !!author.data?.metadata,
-          hasEvent: !!author.data?.event,
+          hasData: !!authorData,
+          hasMetadata: !!authorData?.metadata,
+          hasEvent: !!authorData?.event,
           pubkey: actualTarget.pubkey,
         });
         toast({
@@ -200,9 +211,9 @@ export function useZaps(
         return null;
       }
 
-      const { lud06, lud16 } = author.data.metadata;
+      const { lud06, lud16 } = authorData.metadata;
       if (!lud06 && !lud16) {
-        console.error('Lightning address missing from profile:', author.data.metadata);
+        console.error('Lightning address missing from profile:', authorData.metadata);
         toast({
           title: 'Lightning address not configured',
           description: 'The Blockstr account profile needs a Lightning address (lud16 field).',
@@ -213,7 +224,7 @@ export function useZaps(
       }
 
       // Get zap endpoint using the old reliable method
-      const zapEndpoint = await nip57.getZapEndpoint(author.data.event);
+      const zapEndpoint = await nip57.getZapEndpoint(authorData.event);
       if (!zapEndpoint) {
         toast({
           title: 'Zap endpoint not found',

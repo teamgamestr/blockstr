@@ -9,7 +9,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useZaps } from '@/hooks/useZaps';
 import { useToast } from '@/hooks/useToast';
 import { gameConfig } from '@/config/gameConfig';
-import { Coins, Zap, Play, Wallet as WalletIcon, Copy, X } from 'lucide-react';
+import { Coins, Zap, Play, Wallet as WalletIcon, Copy, X, Loader2 } from 'lucide-react';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { WalletModal } from '@/components/WalletModal';
 import QRCode from 'qrcode';
@@ -28,6 +28,9 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
+  const [trackedInvoice, setTrackedInvoice] = useState<string | null>(null);
+  const [isAwaitingReceipt, setIsAwaitingReceipt] = useState(false);
+  const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect conference mode
   const isConferenceMode = sessionStorage.getItem('blockstr_session_origin') === '/conference';
@@ -52,20 +55,112 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     sig: '',
   };
 
-  const { zap, isZapping, invoice, resetInvoice } = useZaps(
+  const {
+    zap,
+    isZapping,
+    invoice,
+    resetInvoice,
+    zaps = [],
+    refetch,
+  } = useZaps(
     blockstrEvent,
     webln,
     activeNWC,
-    () => {
-      // On successful zap (WebLN/NWC)
-      toast({
-        title: 'Payment successful!',
-        description: 'Starting game...',
-      });
-      onPaymentComplete();
-    },
+    undefined,
     isConferenceMode // Skip automatic payment in conference mode
   );
+
+  const trackInvoice = useCallback((value: string | null) => {
+    setTrackedInvoice(value ? value.toLowerCase() : null);
+  }, []);
+
+  const clearReceiptTimer = useCallback(() => {
+    if (receiptTimerRef.current) {
+      clearTimeout(receiptTimerRef.current);
+      receiptTimerRef.current = null;
+    }
+  }, []);
+
+  const handleReceiptTimeout = useCallback(() => {
+    receiptTimerRef.current = null;
+    setIsAwaitingReceipt(false);
+    toast({
+      title: 'Waiting for receipt...',
+      description: 'No zap receipt was detected within 60 seconds. If you already paid, tap "I PAID" to try again or resend the zap.',
+      variant: 'destructive',
+    });
+  }, [toast]);
+
+  const stopWaiting = useCallback(() => {
+    clearReceiptTimer();
+    setIsAwaitingReceipt(false);
+  }, [clearReceiptTimer]);
+
+  const startReceiptWait = useCallback((invoiceValue: string, reason: 'auto' | 'manual') => {
+    if (!invoiceValue) return;
+    trackInvoice(invoiceValue);
+    setIsAwaitingReceipt(true);
+    toast({
+      title: reason === 'auto' ? 'Payment sent' : 'Verifying payment',
+      description: 'Waiting for zap receipt on Nostr...',
+    });
+    void refetch();
+    clearReceiptTimer();
+    receiptTimerRef.current = setTimeout(handleReceiptTimeout, 60_000);
+  }, [trackInvoice, toast, refetch, clearReceiptTimer, handleReceiptTimeout]);
+
+  const finalizePayment = useCallback((receiptId?: string) => {
+    stopWaiting();
+    trackInvoice(null);
+    resetInvoice();
+    setQrCodeDataUrl('');
+    setIsProcessing(false);
+    const shortId = receiptId ? `${receiptId.slice(0, 8)}…` : undefined;
+    toast({
+      title: 'Zap confirmed!',
+      description: shortId ? `Receipt ${shortId} verified. Starting game...` : 'Zap receipt verified. Starting game...'
+    });
+    onPaymentComplete();
+  }, [stopWaiting, trackInvoice, resetInvoice, toast, onPaymentComplete]);
+
+  useEffect(() => {
+    return () => {
+      stopWaiting();
+      trackInvoice(null);
+    };
+  }, [stopWaiting, trackInvoice]);
+
+  useEffect(() => {
+    if (!trackedInvoice) return;
+    const normalizedInvoice = trackedInvoice.toLowerCase();
+    const payerKey = user?.pubkey;
+    const matchingReceipt = zaps.find((event) => {
+      const bolt11 = event.tags.find(([name]) => name === 'bolt11')?.[1]?.toLowerCase();
+      if (!bolt11 || bolt11 !== normalizedInvoice) {
+        return false;
+      }
+      if (payerKey) {
+        const payer = event.tags.find(([name]) => name === 'P')?.[1];
+        if (payer && payer !== payerKey) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (matchingReceipt) {
+      finalizePayment(matchingReceipt.id);
+    }
+  }, [zaps, trackedInvoice, user, finalizePayment]);
+
+  useEffect(() => {
+    if (!isAwaitingReceipt) return;
+    const interval = setInterval(() => {
+      void refetch();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isAwaitingReceipt, refetch]);
 
   // Handler functions defined first
   const handlePayment = useCallback(async () => {
@@ -88,21 +183,28 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       return;
     }
 
+    stopWaiting();
+    trackInvoice(null);
     setIsProcessing(true);
     try {
       // Reset any previous invoice
       resetInvoice();
 
       // Send zap to Blockstr account
-      await zap(gameConfig.costToPlay, customMemo);
+      const result = await zap(gameConfig.costToPlay, customMemo);
 
-      // If we get here and there's an invoice, it means automatic payment failed
-      // The user will need to pay manually via the invoice
-      if (invoice) {
-        toast({
-          title: 'Manual payment required',
-          description: 'Please pay the invoice to continue.',
-        });
+      if (result?.invoice) {
+        if (result.autoPaid) {
+          startReceiptWait(result.invoice, 'auto');
+        } else {
+          trackInvoice(result.invoice);
+          toast({
+            title: 'Manual payment required',
+            description: isConferenceMode
+              ? `Scan the QR code to pay ${gameConfig.costToPlay} sats.`
+              : 'Automatic payment failed. Please pay the invoice to continue.',
+          });
+        }
       }
     } catch (error) {
       console.error('Payment failed:', error);
@@ -114,15 +216,15 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [user, isConferenceMode, webln, activeNWC, toast, resetInvoice, zap, customMemo, invoice]);
+  }, [user, isConferenceMode, webln, activeNWC, toast, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait]);
 
   // Auto-generate invoice in conference mode when user is logged in
   useEffect(() => {
-    if (isConferenceMode && user && !invoice && !isProcessing && !isZapping) {
+    if (isConferenceMode && user && !invoice && !isProcessing && !isZapping && !trackedInvoice && !isAwaitingReceipt) {
       console.log('[PaymentGate] Auto-generating invoice for conference mode');
       handlePayment();
     }
-  }, [isConferenceMode, user, invoice, isProcessing, isZapping, handlePayment]);
+  }, [isConferenceMode, user, invoice, isProcessing, isZapping, trackedInvoice, isAwaitingReceipt, handlePayment]);
 
   const handleFreePlay = useCallback(() => {
     // For anonymous users or when free play is enabled
@@ -146,7 +248,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
 
   // Simplified keyboard navigation - let Tab work naturally
   useEffect(() => {
-    if (isProcessing || isZapping) return;
+    if (isProcessing || isZapping || isAwaitingReceipt) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept keyboard events if user is typing in input field
@@ -169,7 +271,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isProcessing, isZapping, user]);
+  }, [isProcessing, isZapping, isAwaitingReceipt, user]);
 
   // Gamepad controls for payment gate
   useGamepadMenu({
@@ -193,7 +295,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         freePlayButtonRef.current?.focus();
       }
     },
-    enabled: !isProcessing && !isZapping,
+    enabled: !isProcessing && !isZapping && !isAwaitingReceipt,
   });
 
   // Generate QR code when invoice changes
@@ -274,21 +376,33 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </Button>
               <Button
                 onClick={() => {
-                  // EXACT same flow as WebLN - just call success callback
-                  resetInvoice();
-                  setIsProcessing(false);
-                  toast({
-                    title: 'Payment confirmed!',
-                    description: 'Starting game...',
-                  });
-                  onPaymentComplete();
+                  if (invoice) {
+                    startReceiptWait(invoice, 'manual');
+                  }
                 }}
-                className="bg-green-600 hover:bg-green-700 font-retro text-sm"
+                disabled={isAwaitingReceipt}
+                className="bg-green-600 hover:bg-green-700 font-retro text-sm disabled:opacity-60"
               >
-                <Zap className="w-4 h-4 mr-2" />
-                I PAID
+                {isAwaitingReceipt ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    WAITING...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    I PAID
+                  </>
+                )}
               </Button>
             </div>
+
+            {isAwaitingReceipt && (
+              <div className="flex items-center justify-center gap-2 text-xs text-green-300 font-retro">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Waiting for zap receipt...
+              </div>
+            )}
 
             {/* Payment note */}
             <div className="text-center space-y-2 pt-2">
@@ -296,7 +410,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 Amount: {gameConfig.costToPlay} sats
               </div>
               <div className="text-[0.65rem] text-gray-600">
-                Click "I PAID" after payment completes
+                Click "I PAID" after payment completes so we can verify the zap receipt.
               </div>
             </div>
           </CardContent>
@@ -319,6 +433,17 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {isAwaitingReceipt && (
+            <div className="rounded border border-blue-500/60 bg-blue-900/30 px-4 py-3 text-xs text-blue-100 font-retro flex items-center gap-3">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <div>
+                <div>Waiting for zap receipt on Nostr...</div>
+                {trackedInvoice && (
+                  <div className="text-[0.6rem] text-blue-200/70">Invoice {trackedInvoice.slice(0, 8).toUpperCase()}…</div>
+                )}
+              </div>
+            </div>
+          )}
           {!user ? (
             <div className="text-center space-y-4">
               <div className="text-sm text-gray-300 font-retro">
@@ -388,7 +513,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 <Button
                   ref={payButtonRef}
                   onClick={handlePayment}
-                  disabled={isProcessing || isZapping || (!isConferenceMode && !webln && !activeNWC)}
+                  disabled={isProcessing || isZapping || isAwaitingReceipt || (!isConferenceMode && !webln && !activeNWC)}
                   className="w-full bg-orange-600 hover:bg-orange-700 focus:bg-orange-700 text-white font-retro focus:ring-4 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 transition-all"
                 >
                   <Coins className="w-4 h-4 mr-2" />

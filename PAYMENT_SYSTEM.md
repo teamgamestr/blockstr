@@ -36,7 +36,8 @@ All payment settings are centralized in `/src/config/gameConfig.ts`:
    - Attempts NWC payment first (if connected)
    - Falls back to WebLN (if available)
    - Shows invoice for manual payment as last resort
-6. **Game Starts**: On successful payment, game begins immediately
+6. **Zap Receipt Verification**: Blockstr watches relays for a kind-9735 receipt that matches the generated invoice (bolt11 tag) and payer pubkey
+7. **Game Starts**: Gameplay begins only after the zap receipt is confirmed on Nostr
 
 ### For Anonymous Users
 
@@ -83,6 +84,7 @@ Set `freePlayEnabled: false` to require payment for all gameplay.
 3. **Logged In, Wallet Connected**: Shows zap button + optional free play
 4. **Processing Payment**: Disables buttons, shows loading state
 5. **Invoice Generated**: Shows QR code and copy button for manual payment
+6. **Awaiting Zap Receipt**: After the wallet reports payment, Blockstr locks the UI and monitors relays for the matching zap receipt before starting the game
 
 ### Error Handling
 
@@ -106,15 +108,24 @@ const blockstrEvent: NostrEvent = {
 };
 
 // Use zaps hook
-const { zap, isZapping, invoice } = useZaps(
+const { zap, zaps, refetch } = useZaps(
   blockstrEvent,
   webln,
   activeNWC,
-  onPaymentComplete  // Success callback
+  undefined,
+  isConferenceMode
 );
 
-// Send zap
-await zap(gameConfig.costToPlay, customMemo);
+// Send zap and start waiting for the zap receipt
+const result = await zap(gameConfig.costToPlay, customMemo);
+if (result?.invoice) {
+  if (result.autoPaid) {
+    startReceiptWatcher(result.invoice); // listen for kind-9735 receipts referencing this bolt11
+  } else {
+    showInvoiceUI(result.invoice);
+    // When the user confirms "I paid", call startReceiptWatcher again
+  }
+}
 ```
 
 ### Custom Memo
@@ -127,11 +138,17 @@ Payment gate supports gamepad navigation:
 - D-Pad/Stick: Navigate between buttons
 - A Button: Confirm payment or start free play
 
+### Zap Receipt Verification
+
+- Every payment attempt records the Lightning invoice (bolt11) and the payer pubkey
+- The UI enters an "Awaiting receipt" state and polls for kind-9735 zap receipts that reference the invoice via the `bolt11` tag
+- When a matching receipt is found (and, when available, the `P` tag matches the payer), the payment gate automatically starts the game
+- Manual payments require the player to click **I PAID**, which simply re-triggers the receipt watcher and fetches fresh zap events
+
 ## Future Enhancements
 
 Potential improvements for the payment system:
 
-- [ ] Payment verification via zap receipts
 - [ ] Discount codes or promotional pricing
 - [ ] Subscription model for unlimited plays
 - [ ] Leaderboard entry fees for tournaments

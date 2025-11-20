@@ -223,7 +223,8 @@ const Conference = () => {
     setError('');
 
     try {
-      const [name, domain] = nip05Input.split('@');
+      const normalized = nip05Input.trim().toLowerCase();
+      const [name, domain] = normalized.split('@');
 
       // Fetch the .well-known/nostr.json file
       const response = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
@@ -244,7 +245,10 @@ const Conference = () => {
       console.log('[Conference] Set session origin to /conference (NIP-05)');
 
       // Create a temporary anonymous account but with the NIP-05 verified pubkey
-      login.anonymous(pubkey);
+      login.anonymous(pubkey, {
+        identifier: normalized,
+        source: 'conference-nip05'
+      });
 
       // Redirect to game
       console.log('[Conference] Redirecting to / (NIP-05)');

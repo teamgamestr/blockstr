@@ -15,7 +15,7 @@ interface ScorePublishingOptions {
 
 export function useScorePublishing() {
   const { nostr } = useNostr();
-  const { user } = useCurrentUser();
+  const { user, effectivePubkey } = useCurrentUser();
 
   const publishScore = useCallback(async (options: ScorePublishingOptions) => {
     console.log('publishScore called with options:', options);
@@ -26,6 +26,7 @@ export function useScorePublishing() {
     }
 
     const { sessionId, minedScore, duration, bitcoinBlocksFound, difficulty } = options;
+    const playerPubkey = effectivePubkey ?? user.pubkey;
 
     console.log('Requesting server to sign score...');
 
@@ -36,7 +37,7 @@ export function useScorePublishing() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          playerPubkey: user.pubkey,
+          playerPubkey,
           score: minedScore,
           difficulty,
           duration,
@@ -62,7 +63,7 @@ export function useScorePublishing() {
       console.error('Error publishing score:', err);
       throw err;
     }
-  }, [user, nostr]);
+  }, [user, effectivePubkey, nostr]);
 
   const publishGamePost = useCallback(async (options: ScorePublishingOptions & { message?: string; scoreEventId?: string }) => {
     if (!user?.signer) {

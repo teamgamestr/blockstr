@@ -7,17 +7,46 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useGamepadMenu } from '@/hooks/useGamepadMenu';
 import { useWallet } from '@/hooks/useWallet';
 import { useZaps } from '@/hooks/useZaps';
-import { useToast } from '@/hooks/useToast';
 import { gameConfig } from '@/config/gameConfig';
 import { Coins, Zap, Play, Wallet as WalletIcon, Copy, X, Loader2 } from 'lucide-react';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { WalletModal } from '@/components/WalletModal';
 import QRCode from 'qrcode';
 import type { Event as NostrToolsEvent } from 'nostr-tools';
+import { useLoginActions } from '@/hooks/useLoginActions';
 
 interface PaymentGateProps {
   onPaymentComplete: () => void;
   className?: string;
+}
+
+type StatusTone = 'info' | 'success' | 'error';
+
+interface StatusMessage {
+  title: string;
+  description?: string;
+  tone?: StatusTone;
+}
+
+const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
+  info: 'border-blue-500/60 bg-blue-900/30 text-blue-100',
+  success: 'border-green-500/60 bg-green-900/25 text-green-100',
+  error: 'border-red-600/60 bg-red-900/30 text-red-200',
+};
+
+function StatusBanner({ status }: { status: StatusMessage | null }) {
+  if (!status) return null;
+  const tone = status.tone ?? 'info';
+  const toneClasses = STATUS_TONE_CLASSES[tone];
+
+  return (
+    <div className={`rounded border px-4 py-3 text-xs font-retro ${toneClasses}`}>
+      <div className="font-semibold">{status.title}</div>
+      {status.description && (
+        <div className="text-[0.65rem] opacity-80 mt-1">{status.description}</div>
+      )}
+    </div>
+  );
 }
 
 export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) {
@@ -26,11 +55,12 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const [customMemo, setCustomMemo] = useState(gameConfig.zapMemo);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const { user } = useCurrentUser();
-  const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
+  const loginActions = useLoginActions();
   const [isConferenceMode, setIsConferenceMode] = useState(false);
   const [trackedInvoice, setTrackedInvoice] = useState<string | null>(null);
   const [isAwaitingReceipt, setIsAwaitingReceipt] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
   const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect conference mode and ensure the root route stays on the regular payment flow
@@ -112,30 +142,32 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const handleReceiptTimeout = useCallback(() => {
     receiptTimerRef.current = null;
     setIsAwaitingReceipt(false);
-    toast({
-      title: 'Waiting for receipt...',
+    setStatusMessage({
+      title: 'Still waiting for receipt…',
       description: 'No zap receipt was detected within 60 seconds. If you already paid, please try sending the zap again.',
-      variant: 'destructive',
+      tone: 'error',
     });
-  }, [toast]);
+  }, [setStatusMessage]);
 
   const stopWaiting = useCallback(() => {
     clearReceiptTimer();
     setIsAwaitingReceipt(false);
   }, [clearReceiptTimer]);
 
-  const startReceiptWait = useCallback((invoiceValue: string, reason: 'auto' | 'manual') => {
+  const startReceiptWait = useCallback((invoiceValue: string, reason: 'auto' | 'manual', manualDescription?: string) => {
     if (!invoiceValue) return;
     trackInvoice(invoiceValue);
     setIsAwaitingReceipt(true);
-    toast({
-      title: reason === 'auto' ? 'Payment sent' : 'Verifying payment',
-      description: 'Waiting for zap receipt on Nostr...',
+    const isAuto = reason === 'auto';
+    setStatusMessage({
+      title: isAuto ? 'Payment sent' : 'Scan to pay',
+      description: isAuto ? 'Waiting for zap receipt on Nostr...' : (manualDescription ?? 'Show the QR code to your wallet. Waiting for zap receipt...'),
+      tone: 'info',
     });
     void refetch();
     clearReceiptTimer();
     receiptTimerRef.current = setTimeout(handleReceiptTimeout, 60_000);
-  }, [trackInvoice, toast, refetch, clearReceiptTimer, handleReceiptTimeout]);
+  }, [trackInvoice, refetch, clearReceiptTimer, handleReceiptTimeout, setStatusMessage]);
 
   const finalizePayment = useCallback((receiptId?: string) => {
     stopWaiting();
@@ -144,12 +176,13 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     setQrCodeDataUrl('');
     setIsProcessing(false);
     const shortId = receiptId ? `${receiptId.slice(0, 8)}…` : undefined;
-    toast({
-      title: 'Zap confirmed!',
-      description: shortId ? `Receipt ${shortId} verified. Starting game...` : 'Zap receipt verified. Starting game...'
+    setStatusMessage({
+      title: 'Zap confirmed',
+      description: shortId ? `Receipt ${shortId} verified. Starting game...` : 'Zap receipt verified. Starting game...',
+      tone: 'success',
     });
     onPaymentComplete();
-  }, [stopWaiting, trackInvoice, resetInvoice, toast, onPaymentComplete]);
+  }, [stopWaiting, trackInvoice, resetInvoice, onPaymentComplete, setStatusMessage]);
 
   useEffect(() => {
     return () => {
@@ -182,37 +215,35 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   }, [zaps, trackedInvoice, user, finalizePayment]);
 
   useEffect(() => {
-    if (!isAwaitingReceipt) return;
-    const interval = setInterval(() => {
+    if (isAwaitingReceipt) {
       void refetch();
-    }, 4000);
-
-    return () => clearInterval(interval);
+    }
   }, [isAwaitingReceipt, refetch]);
 
   // Handler functions defined first
   const handlePayment = useCallback(async () => {
     if (!user) {
-      toast({
+      setStatusMessage({
         title: 'Login required',
         description: 'Please login to pay with Lightning.',
-        variant: 'destructive',
+        tone: 'error',
       });
       return;
     }
 
     // In conference mode, skip wallet checks and go straight to invoice
     if (!isConferenceMode && !webln && !activeNWC) {
-      toast({
+      setStatusMessage({
         title: 'Wallet not connected',
         description: 'Please connect a Lightning wallet to continue.',
-        variant: 'destructive',
+        tone: 'error',
       });
       return;
     }
 
     stopWaiting();
     trackInvoice(null);
+    setStatusMessage(null);
     setIsProcessing(true);
     try {
       // Reset any previous invoice
@@ -225,30 +256,30 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         if (result.autoPaid) {
           startReceiptWait(result.invoice, 'auto');
         } else if (isConferenceMode) {
-          startReceiptWait(result.invoice, 'manual');
-          toast({
-            title: 'Scan to pay',
-            description: `Show this QR code to your Lightning wallet to pay ${gameConfig.costToPlay} sats. We'll monitor for the receipt automatically.`,
-          });
+          startReceiptWait(
+            result.invoice,
+            'manual',
+            `Show this QR code to your Lightning wallet to pay ${gameConfig.costToPlay} sats. We'll monitor for the receipt automatically.`
+          );
         } else {
-          startReceiptWait(result.invoice, 'manual');
-          toast({
-            title: 'Scan to pay',
-            description: 'Show the QR code to your wallet. We are watching for the zap receipt automatically.',
-          });
+          startReceiptWait(
+            result.invoice,
+            'manual',
+            'Show the QR code to your wallet. We are watching for the zap receipt automatically.'
+          );
         }
       }
     } catch (error) {
       console.error('Payment failed:', error);
-      toast({
+      setStatusMessage({
         title: 'Payment failed',
         description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
+        tone: 'error',
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [user, isConferenceMode, webln, activeNWC, toast, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait]);
+  }, [user, isConferenceMode, webln, activeNWC, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait, setStatusMessage]);
 
   // Auto-generate invoice in conference mode when user is logged in
   useEffect(() => {
@@ -257,6 +288,28 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       handlePayment();
     }
   }, [isConferenceMode, user, invoice, isProcessing, isZapping, trackedInvoice, isAwaitingReceipt, handlePayment]);
+
+  const handleAnonymousLogin = useCallback(() => {
+    try {
+      loginActions.anonymous();
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('blockstr_session_origin', '/');
+      }
+      setSelectedButton(0);
+      setStatusMessage({
+        title: 'Anonymous profile ready',
+        description: 'You can now zap to start playing.',
+        tone: 'success',
+      });
+    } catch (error) {
+      console.error('Anonymous login failed:', error);
+      setStatusMessage({
+        title: 'Unable to continue',
+        description: error instanceof Error ? error.message : 'Failed to create anonymous session.',
+        tone: 'error',
+      });
+    }
+  }, [loginActions, setStatusMessage]);
 
   const handleFreePlay = useCallback(() => {
     // For anonymous users or when free play is enabled
@@ -375,6 +428,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <StatusBanner status={statusMessage} />
             {qrCodeDataUrl ? (
               <div className="flex justify-center p-4 bg-white rounded-lg">
                 <img
@@ -443,6 +497,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <StatusBanner status={statusMessage} />
             {/* QR Code */}
             {qrCodeDataUrl ? (
               <div className="flex justify-center p-4 bg-white rounded-lg">
@@ -461,10 +516,11 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             <div className="space-y-3">
               <Button
                 onClick={() => {
-                  navigator.clipboard.writeText(invoice);
-                  toast({
-                    title: 'Copied!',
-                    description: 'Invoice copied to clipboard',
+                  void navigator.clipboard.writeText(invoice);
+                  setStatusMessage({
+                    title: 'Invoice copied',
+                    description: 'Lightning invoice copied to clipboard.',
+                    tone: 'success',
                   });
                 }}
                 variant="outline"
@@ -518,6 +574,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         </CardHeader>
 
         <CardContent className="space-y-6">
+          <StatusBanner status={statusMessage} />
           {isAwaitingReceipt && (
             <div className="rounded border border-blue-500/60 bg-blue-900/30 px-4 py-3 text-xs text-blue-100 font-retro flex items-center gap-3">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -532,16 +589,16 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
           {!user ? (
             <div className="text-center space-y-4">
               <div className="text-sm text-gray-300 font-retro">
-                Login to zap and play or continue anonymously
+                Login to save scores to Nostr from your profile or play anon.
               </div>
               <LoginArea className="max-w-60 mx-auto" />
               <Button
                 ref={freePlayButtonRef}
-                onClick={handleFreePlay}
-                className="w-full bg-gray-700 hover:bg-gray-600 focus:bg-gray-600 text-white font-retro focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
+                onClick={handleAnonymousLogin}
+                className="mx-auto bg-gray-700 hover:bg-gray-600 focus:bg-gray-600 text-white font-retro focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all text-left px-6 py-3"
               >
-                <Play className="w-4 h-4 mr-2" />
-                PLAY ANONYMOUSLY (Press Enter)
+                <Play className="w-4 h-4 mr-3" />
+                <span className="text-sm tracking-wide">PLAY ANONYMOUSLY</span>
               </Button>
               <div className="text-center text-[0.65rem] text-gray-600 font-retro">
                 ⌨️ Press Enter to start • 🎮 Press A button

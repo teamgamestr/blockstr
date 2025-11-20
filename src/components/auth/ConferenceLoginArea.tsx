@@ -267,7 +267,8 @@ export function ConferenceLoginArea({
     setError('');
 
     try {
-      const [name, domain] = nip05Input.split('@');
+      const normalized = nip05Input.trim().toLowerCase();
+      const [name, domain] = normalized.split('@');
 
       // Fetch the .well-known/nostr.json file
       const response = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
@@ -285,7 +286,10 @@ export function ConferenceLoginArea({
 
       // Create a temporary anonymous account but with the NIP-05 verified pubkey
       // This allows us to associate scores with the user's identity
-      login.anonymous(pubkey);
+      login.anonymous(pubkey, {
+        identifier: normalized,
+        source: 'conference-nip05'
+      });
 
       if (onLoginComplete) {
         onLoginComplete();

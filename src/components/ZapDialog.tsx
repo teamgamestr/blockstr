@@ -27,7 +27,6 @@ import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useToast } from '@/hooks/useToast';
 import { useZaps } from '@/hooks/useZaps';
 import { useWallet } from '@/hooks/useWallet';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -239,7 +238,6 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const [open, setOpen] = useState(false);
   const { user } = useCurrentUser();
   const { data: author } = useAuthor(target.pubkey);
-  const { toast } = useToast();
   const { webln, activeNWC, hasWebLN, detectWebLN } = useWallet();
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
@@ -303,10 +301,6 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     if (invoice) {
       await navigator.clipboard.writeText(invoice);
       setCopied(true);
-      toast({
-        title: 'Invoice copied',
-        description: 'Lightning invoice copied to clipboard',
-      });
       setTimeout(() => setCopied(false), 2000);
     }
   };

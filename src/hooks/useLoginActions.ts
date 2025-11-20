@@ -1,8 +1,15 @@
 import { useNostr } from '@nostrify/react';
 import { NLogin, useNostrLogin } from '@nostrify/react/login';
-import { generateSecretKey, nip19 } from 'nostr-tools';
+import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 
 // NOTE: This file should not be edited except for adding new login methods.
+
+interface Nip05LoginOptions {
+  /** Raw nip05 identifier entered by the user (e.g., alice@example.com). */
+  identifier?: string;
+  /** Where this read-only login originated (conference page, etc.). */
+  source?: string;
+}
 
 export function useLoginActions() {
   const { nostr } = useNostr();
@@ -53,21 +60,33 @@ export function useLoginActions() {
       addLogin(login);
     },
     // Login anonymously with a temporary keypair (optionally with a specific pubkey for NIP-05 verified users)
-    anonymous(pubkey?: string): void {
-      // If a pubkey is provided (from NIP-05), we create a temporary keypair
-      // but store the NIP-05 verified pubkey in the login data for score attribution
-      // Otherwise generate a new temporary keypair for truly anonymous play
+    anonymous(pubkey?: string, options?: Nip05LoginOptions): void {
       const secretKey = generateSecretKey();
       const nsec = nip19.nsecEncode(secretKey);
-      const login = NLogin.fromNsec(nsec);
 
-      // If a verified pubkey is provided, we'll store it separately
-      // This can be used later when publishing scores
+      // If a verified pubkey is provided, create a proxy login that signs with the temporary key
       if (pubkey) {
-        // Store the verified pubkey in localStorage for score attribution
-        localStorage.setItem('blockstr_verified_pubkey', pubkey);
+        const clientPubkey = getPublicKey(secretKey);
+        const proxyLogin = new NLogin('x-nip05-proxy', clientPubkey, {
+          clientNsec: nsec,
+          aliasPubkey: pubkey,
+          identifier: options?.identifier,
+          source: options?.source ?? 'nip05',
+        });
+
+        // Store the verified pubkey in localStorage for backward compatibility
+        try {
+          localStorage.setItem('blockstr_verified_pubkey', pubkey);
+        } catch (error) {
+          console.warn('Unable to persist verified pubkey to localStorage:', error);
+        }
+
+        addLogin(proxyLogin);
+        return;
       }
 
+      // Otherwise generate a new temporary keypair for truly anonymous play
+      const login = NLogin.fromNsec(nsec);
       addLogin(login);
     },
     // Log out the current user

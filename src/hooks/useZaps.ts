@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useAppContext } from '@/hooks/useAppContext';
-import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import type { NWCConnection } from '@/hooks/useNWC';
 import { nip57 } from 'nostr-tools';
@@ -25,7 +24,6 @@ export function useZaps(
   skipAutomaticPayment?: boolean
 ) {
   const { nostr } = useNostr();
-  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { config } = useAppContext();
   const queryClient = useQueryClient();
@@ -222,21 +220,11 @@ export function useZaps(
     setInvoice(null); // Clear any previous invoice at the start
 
     if (!user) {
-      toast({
-        title: 'Login required',
-        description: 'You must be logged in to send a zap.',
-        variant: 'destructive',
-      });
       setIsZapping(false);
       return null;
     }
 
     if (!actualTarget) {
-      toast({
-        title: 'Event not found',
-        description: 'Could not find the event to zap.',
-        variant: 'destructive',
-      });
       setIsZapping(false);
       return null;
     }
@@ -260,11 +248,6 @@ export function useZaps(
           hasEvent: !!authorData?.event,
           pubkey: actualTarget.pubkey,
         });
-        toast({
-          title: 'Blockstr profile not found',
-          description: 'The Blockstr account needs a Nostr profile with a Lightning address (lud16) configured.',
-          variant: 'destructive',
-        });
         setIsZapping(false);
         return null;
       }
@@ -272,11 +255,6 @@ export function useZaps(
       const { lud06, lud16 } = authorData.metadata;
       if (!lud06 && !lud16) {
         console.error('Lightning address missing from profile:', authorData.metadata);
-        toast({
-          title: 'Lightning address not configured',
-          description: 'The Blockstr account profile needs a Lightning address (lud16 field).',
-          variant: 'destructive',
-        });
         setIsZapping(false);
         return null;
       }
@@ -284,11 +262,6 @@ export function useZaps(
       // Get zap endpoint using the old reliable method
       const zapEndpoint = await nip57.getZapEndpoint(authorData.event);
       if (!zapEndpoint) {
-        toast({
-          title: 'Zap endpoint not found',
-          description: 'Could not find a zap endpoint for the author.',
-          variant: 'destructive',
-        });
         setIsZapping(false);
         return null;
       }
@@ -351,10 +324,6 @@ export function useZaps(
             setIsZapping(false);
             setInvoice(null);
 
-            toast({
-              title: 'Zap successful!',
-              description: `You sent ${amount} sats via NWC to the author.`,
-            });
 
             // Invalidate zap queries to refresh counts
             queryClient.invalidateQueries({ queryKey: ['zaps'] });
@@ -366,12 +335,6 @@ export function useZaps(
             console.error('NWC payment failed, falling back:', nwcError);
 
             // Show specific NWC error to user for debugging
-            const errorMessage = nwcError instanceof Error ? nwcError.message : 'Unknown NWC error';
-            toast({
-              title: 'NWC payment failed',
-              description: `${errorMessage}. Falling back to other payment methods...`,
-              variant: 'destructive',
-            });
           }
         }
 
@@ -383,10 +346,6 @@ export function useZaps(
             setIsZapping(false);
             setInvoice(null);
 
-            toast({
-              title: 'Zap successful!',
-              description: `You sent ${amount} sats to the author.`,
-            });
 
             // Invalidate zap queries to refresh counts
             queryClient.invalidateQueries({ queryKey: ['zaps'] });
@@ -398,12 +357,6 @@ export function useZaps(
             console.error('webln payment failed, falling back:', weblnError);
 
             // Show specific WebLN error to user for debugging
-            const errorMessage = weblnError instanceof Error ? weblnError.message : 'Unknown WebLN error';
-            toast({
-              title: 'WebLN payment failed',
-              description: `${errorMessage}. Falling back to other payment methods...`,
-              variant: 'destructive',
-            });
           }
         }
 
@@ -413,21 +366,11 @@ export function useZaps(
         return { invoice: newInvoice, autoPaid: false };
       } catch (err) {
         console.error('Zap error:', err);
-        toast({
-          title: 'Zap failed',
-          description: (err as Error).message,
-          variant: 'destructive',
-        });
         setIsZapping(false);
         return null;
       }
     } catch (err) {
       console.error('Zap error:', err);
-      toast({
-        title: 'Zap failed',
-        description: (err as Error).message,
-        variant: 'destructive',
-      });
       setIsZapping(false);
       return null;
     }

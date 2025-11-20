@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { WalletModal } from '@/components/WalletModal';
 import QRCode from 'qrcode';
 import type { Event as NostrToolsEvent } from 'nostr-tools';
 import { useLoginActions } from '@/hooks/useLoginActions';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface PaymentGateProps {
   onPaymentComplete: () => void;
@@ -57,6 +58,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const { user } = useCurrentUser();
   const { webln, activeNWC } = useWallet();
   const loginActions = useLoginActions();
+  const isMobile = useIsMobile();
   const [isConferenceMode, setIsConferenceMode] = useState(false);
   const [trackedInvoice, setTrackedInvoice] = useState<string | null>(null);
   const [isAwaitingReceipt, setIsAwaitingReceipt] = useState(false);
@@ -113,6 +115,15 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     sig: '',
   };
 
+  const createAnonymousSession = useCallback(() => {
+    loginActions.anonymous();
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('blockstr_session_origin', '/');
+    }
+  }, [loginActions]);
+
+  const shouldSkipAutomaticPayment = isConferenceMode || (!webln && !activeNWC);
+
   const {
     zap,
     isZapping,
@@ -125,7 +136,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     webln,
     activeNWC,
     undefined,
-    isConferenceMode // Skip automatic payment in conference mode
+    shouldSkipAutomaticPayment
   );
 
   const trackInvoice = useCallback((value: string | null) => {
@@ -224,18 +235,8 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const handlePayment = useCallback(async () => {
     if (!user) {
       setStatusMessage({
-        title: 'Login required',
-        description: 'Please login to pay with Lightning.',
-        tone: 'error',
-      });
-      return;
-    }
-
-    // In conference mode, skip wallet checks and go straight to invoice
-    if (!isConferenceMode && !webln && !activeNWC) {
-      setStatusMessage({
-        title: 'Wallet not connected',
-        description: 'Please connect a Lightning wallet to continue.',
+        title: 'Profile required',
+        description: 'Login or continue as guest to request a Lightning invoice.',
         tone: 'error',
       });
       return;
@@ -279,7 +280,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [user, isConferenceMode, webln, activeNWC, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait, setStatusMessage]);
+  }, [user, isConferenceMode, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait, setStatusMessage]);
 
   // Auto-generate invoice in conference mode when user is logged in
   useEffect(() => {
@@ -291,14 +292,11 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
 
   const handleAnonymousLogin = useCallback(() => {
     try {
-      loginActions.anonymous();
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('blockstr_session_origin', '/');
-      }
+      createAnonymousSession();
       setSelectedButton(0);
       setStatusMessage({
         title: 'Anonymous profile ready',
-        description: 'You can now zap to start playing.',
+        description: 'You can now zap or request an invoice to start playing.',
         tone: 'success',
       });
     } catch (error) {
@@ -309,12 +307,35 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
         tone: 'error',
       });
     }
-  }, [loginActions, setStatusMessage]);
+  }, [createAnonymousSession, setStatusMessage]);
 
   const handleFreePlay = useCallback(() => {
     // For anonymous users or when free play is enabled
     onPaymentComplete();
   }, [onPaymentComplete]);
+
+  const lightningUri = useMemo(() => {
+    if (!invoice) return null;
+    return invoice.toLowerCase().startsWith('lightning:') ? invoice : `lightning:${invoice}`;
+  }, [invoice]);
+
+  const openInvoiceInWallet = useCallback(() => {
+    if (!lightningUri) {
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const newWindow = window.open(lightningUri, '_blank');
+        if (!newWindow) {
+          window.location.href = lightningUri;
+        }
+      } catch (error) {
+        console.warn('Unable to open wallet via window.open, falling back to location.href', error);
+        window.location.href = lightningUri;
+      }
+    }
+  }, [lightningUri]);
 
   // Focus the primary button when component mounts
   useEffect(() => {
@@ -514,6 +535,16 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             )}
 
             <div className="space-y-3">
+              {isMobile && lightningUri && (
+                <Button
+                  onClick={openInvoiceInWallet}
+                  className="w-full bg-green-600 hover:bg-green-500 focus:bg-green-500 text-white font-retro focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black"
+                >
+                  <WalletIcon className="w-4 h-4 mr-2" />
+                  OPEN IN WALLET
+                </Button>
+              )}
+
               <Button
                 onClick={() => {
                   void navigator.clipboard.writeText(invoice);
@@ -619,8 +650,11 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               {/* Wallet connection status - hide in conference mode */}
               {!isConferenceMode && !webln && !activeNWC && (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-600 rounded text-center">
-                  <p className="text-xs text-yellow-400 font-retro mb-2">
+                  <p className="text-xs text-yellow-400 font-retro mb-1">
                     ⚠️ NO WALLET CONNECTED
+                  </p>
+                  <p className="text-[0.7rem] text-yellow-100 font-retro mb-3">
+                    We'll fall back to QR invoices. Connect a wallet for 1-tap zaps.
                   </p>
                   <WalletModal>
                     <Button
@@ -655,13 +689,13 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 <Button
                   ref={payButtonRef}
                   onClick={handlePayment}
-                  disabled={isProcessing || isZapping || isAwaitingReceipt || (!isConferenceMode && !webln && !activeNWC)}
+                  disabled={isProcessing || isZapping || isAwaitingReceipt}
                   className="w-full bg-orange-600 hover:bg-orange-700 focus:bg-orange-700 text-white font-retro focus:ring-4 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 transition-all"
                 >
                   <Coins className="w-4 h-4 mr-2" />
                   {isProcessing || isZapping
                     ? 'PROCESSING...'
-                    : isConferenceMode
+                    : shouldSkipAutomaticPayment
                       ? `GET INVOICE (${gameConfig.costToPlay} SATS)`
                       : `ZAP ${gameConfig.costToPlay} SATS`
                   }

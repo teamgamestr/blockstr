@@ -36,7 +36,7 @@ export interface GameConfig {
 export const gameConfig: GameConfig = {
   // Game mechanics
   initialSpeed: 1000, // 1 second per drop initially
-  speedIncrease: 0.85, // 15% faster after each level
+  speedIncrease: 0.80, // 20% faster after each level
   maxSpeed: 100, // Maximum speed (0.1 seconds per drop)
   levelDuration: 2 * 60 * 1000, // 2 minutes per level
 
@@ -51,7 +51,7 @@ export const gameConfig: GameConfig = {
   freePlayEnabled: false, // Set to false in production
 
   // Testing
-  testMode: true, // Set to false in production, enables B for blocks
+  testMode: false, // Set to false in production, enables B for blocks
 
   // Grid dimensions
   boardWidth: 10,

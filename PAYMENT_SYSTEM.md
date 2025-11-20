@@ -143,7 +143,7 @@ Payment gate supports gamepad navigation:
 - Every payment attempt records the Lightning invoice (bolt11) and the payer pubkey
 - The UI enters an "Awaiting receipt" state and polls for kind-9735 zap receipts that reference the invoice via the `bolt11` tag
 - When a matching receipt is found (and, when available, the `P` tag matches the payer), the payment gate automatically starts the game
-- Manual payments require the player to click **I PAID**, which simply re-triggers the receipt watcher and fetches fresh zap events
+- Manual payments automatically trigger the receipt watcher as soon as the invoice is generated (no extra button press required)
 
 ## Future Enhancements
 

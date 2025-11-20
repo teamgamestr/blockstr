@@ -114,7 +114,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     setIsAwaitingReceipt(false);
     toast({
       title: 'Waiting for receipt...',
-      description: 'No zap receipt was detected within 60 seconds. If you already paid, tap "I PAID" to try again or resend the zap.',
+      description: 'No zap receipt was detected within 60 seconds. If you already paid, please try sending the zap again.',
       variant: 'destructive',
     });
   }, [toast]);
@@ -231,10 +231,10 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             description: `Show this QR code to your Lightning wallet to pay ${gameConfig.costToPlay} sats. We'll monitor for the receipt automatically.`,
           });
         } else {
-          trackInvoice(result.invoice);
+          startReceiptWait(result.invoice, 'manual');
           toast({
-            title: 'Manual payment required',
-            description: 'Automatic payment failed. Please pay the invoice to continue.',
+            title: 'Scan to pay',
+            description: 'Show the QR code to your wallet. We are watching for the zap receipt automatically.',
           });
         }
       }
@@ -458,8 +458,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-3">
               <Button
                 onClick={() => {
                   navigator.clipboard.writeText(invoice);
@@ -469,40 +468,26 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                   });
                 }}
                 variant="outline"
-                className="font-retro text-sm border-gray-600 text-gray-300 hover:bg-gray-800"
+                className="w-full font-retro text-sm border-gray-600 text-gray-300 hover:bg-gray-800"
               >
                 <Copy className="w-4 h-4 mr-2" />
-                COPY
+                COPY INVOICE
               </Button>
-              <Button
-                onClick={() => {
-                  if (invoice) {
-                    startReceiptWait(invoice, 'manual');
-                  }
-                }}
-                disabled={isAwaitingReceipt}
-                className="bg-green-600 hover:bg-green-700 font-retro text-sm disabled:opacity-60"
-              >
+
+              <div className="rounded border border-blue-500/60 bg-blue-900/20 px-4 py-3 text-xs text-blue-100 font-retro flex items-center justify-center gap-3">
                 {isAwaitingReceipt ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    WAITING...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Waiting for zap receipt...
                   </>
                 ) : (
                   <>
-                    <Zap className="w-4 h-4 mr-2" />
-                    I PAID
+                    <Zap className="w-4 h-4" />
+                    Listening for payment...
                   </>
                 )}
-              </Button>
-            </div>
-
-            {isAwaitingReceipt && (
-              <div className="flex items-center justify-center gap-2 text-xs text-green-300 font-retro">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Waiting for zap receipt...
               </div>
-            )}
+            </div>
 
             {/* Payment note */}
             <div className="text-center space-y-2 pt-2">
@@ -510,7 +495,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                 Amount: {gameConfig.costToPlay} sats
               </div>
               <div className="text-[0.65rem] text-gray-600">
-                Click "I PAID" after payment completes so we can verify the zap receipt.
+                Hold your wallet over the QR code. We will automatically detect the zap receipt.
               </div>
             </div>
           </CardContent>

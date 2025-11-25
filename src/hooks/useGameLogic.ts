@@ -183,7 +183,11 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
 
   // Transfer scores when Bitcoin blocks are found
   useEffect(() => {
-    if (bitcoinBlocks > gameState.bitcoinBlocks && gameState.gameStarted) {
+    if (
+      bitcoinBlocks > gameState.bitcoinBlocks &&
+      gameState.gameStarted &&
+      !gameState.gameOver
+    ) {
       // Trigger animation
       setGameState(prev => ({
         ...prev,
@@ -196,7 +200,7 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
         onBlockMined();
       }
     }
-  }, [bitcoinBlocks, gameState.bitcoinBlocks, gameState.gameStarted, onBlockMined]);
+  }, [bitcoinBlocks, gameState.bitcoinBlocks, gameState.gameStarted, gameState.gameOver, onBlockMined]);
 
   // Handle animation completion - clear blocks and transfer score
   const handleAnimationComplete = useCallback(() => {

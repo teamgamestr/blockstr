@@ -72,7 +72,13 @@ export function useScorePublishing() {
 
     const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, message, scoreEventId } = options;
 
-    const defaultMessage = `Just mined ${minedScore} points in Blockstr! 🎮⚡\n\nPlayed through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.\n\n${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!\\n\\n` : ''}#blockstr #gaming #bitcoin #nostr`;
+    const defaultMessage = `Just mined ${minedScore} points in Blockstr! 🎮⚡
+
+Played through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.
+
+${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
+
+` : ''}#blockstr #gaming #bitcoin #nostr`;
 
     // Create event template (kind 1) - signed by the player
     const eventTemplate: EventTemplate = {

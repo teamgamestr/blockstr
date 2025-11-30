@@ -280,7 +280,13 @@ export function GameOverModal({
                 <Textarea
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
-                  placeholder={`Just mined ${gameState.minedScore.toLocaleString()} points in Blockstr! 🎮⚡\n\nSurvived ${gameState.bitcoinBlocks} Bitcoin blocks on level ${gameState.level}.\n\n${gameState.mempoolScore > 0 ? `Still have ${gameState.mempoolScore.toLocaleString()} points waiting to be mined!\\n\\n` : ''}#blockstr #gaming #bitcoin #nostr`}
+                  placeholder={`Just mined ${gameState.minedScore.toLocaleString()} points in Blockstr! 🎮⚡
+
+Survived ${gameState.bitcoinBlocks} Bitcoin blocks on level ${gameState.level}.
+
+${gameState.mempoolScore > 0 ? `Still have ${gameState.mempoolScore.toLocaleString()} points waiting to be mined!
+
+` : ''}#blockstr #gaming #bitcoin #nostr`}
                   className="bg-gray-900 border-gray-700 text-white text-sm min-h-[100px]"
                 />
                 <Button

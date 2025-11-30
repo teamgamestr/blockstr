@@ -38,6 +38,7 @@ export interface GameState {
   lastBlockHash: string | null; // Last Bitcoin block hash seen
   timeToNextLevel: number; // Milliseconds until next difficulty adjustment
   showBlockAnimation: boolean; // Show block mined animation
+  softDropActive: boolean; // Player holding soft drop key
 }
 
 export interface BitcoinBlock {

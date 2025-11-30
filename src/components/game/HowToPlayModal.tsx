@@ -75,13 +75,13 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                   <div className="w-6 h-6 border border-gray-600 rounded flex items-center justify-center">
                     <ArrowDown className="w-3 h-3" />
                   </div>
-                  <span className="text-gray-300">Soft drop</span>
+                  <span className="text-gray-300">Hard drop</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="px-2 py-1 border border-gray-600 rounded font-retro text-[0.65rem]">
                     SPACE
                   </div>
-                  <span className="text-gray-300">Hard drop</span>
+                  <span className="text-gray-300">Soft drop (hold for 2× speed)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="px-2 py-1 border border-gray-600 rounded font-retro text-[0.65rem]">
@@ -117,7 +117,7 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <ArrowDown className="w-5 h-5 text-blue-400" />
-                  <span className="text-gray-300">Swipe down to drop</span>
+                  <span className="text-gray-300">Swipe down to hard drop</span>
                 </div>
               </div>
             </div>

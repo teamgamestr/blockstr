@@ -120,7 +120,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     bitcoinBlocks: 0,
     lastBlockHash: null,
     timeToNextLevel: gameConfig.levelDuration,
-    showBlockAnimation: false
+    showBlockAnimation: false,
+    softDropActive: false
   });
 
   const dropTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -202,6 +203,12 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     }
   }, [bitcoinBlocks, gameState.bitcoinBlocks, gameState.gameStarted, gameState.gameOver, onBlockMined]);
 
+  useEffect(() => {
+    if (!gameState.gameStarted || gameState.gameOver || gameState.isPaused) {
+      setGameState(prev => (prev.softDropActive ? { ...prev, softDropActive: false } : prev));
+    }
+  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused]);
+
   // Handle animation completion - clear blocks and transfer score
   const handleAnimationComplete = useCallback(() => {
     setGameState(prev => ({
@@ -281,10 +288,11 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
   // Game loop - uses setInterval for continuous dropping
   useEffect(() => {
     if (gameState.gameStarted && !gameState.gameOver && !gameState.isPaused) {
-      const intervalId = setInterval(dropPiece, gameState.dropSpeed);
+      const intervalSpeed = Math.max(20, gameState.softDropActive ? gameState.dropSpeed / 2 : gameState.dropSpeed);
+      const intervalId = setInterval(dropPiece, intervalSpeed);
       return () => clearInterval(intervalId);
     }
-  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused, gameState.dropSpeed, dropPiece]);
+  }, [gameState.gameStarted, gameState.gameOver, gameState.isPaused, gameState.dropSpeed, gameState.softDropActive, dropPiece]);
 
   const startGame = useCallback(() => {
     const firstPiece = getRandomTetromino();
@@ -307,7 +315,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
       bitcoinBlocks: 0,
       lastBlockHash: null,
       timeToNextLevel: gameConfig.levelDuration,
-      showBlockAnimation: false
+      showBlockAnimation: false,
+      softDropActive: false
     });
   }, []);
 
@@ -335,7 +344,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
       bitcoinBlocks: 0,
       lastBlockHash: null,
       timeToNextLevel: gameConfig.levelDuration,
-      showBlockAnimation: false
+      showBlockAnimation: false,
+      softDropActive: false
     });
   }, []);
 
@@ -421,6 +431,25 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     });
   }, []);
 
+  const startSoftDrop = useCallback(() => {
+    setGameState(prev => {
+      if (
+        !prev.currentPiece ||
+        prev.softDropActive ||
+        prev.gameOver ||
+        prev.isPaused ||
+        !prev.gameStarted
+      ) {
+        return prev;
+      }
+      return { ...prev, softDropActive: true };
+    });
+  }, []);
+
+  const stopSoftDrop = useCallback(() => {
+    setGameState(prev => (prev.softDropActive ? { ...prev, softDropActive: false } : prev));
+  }, []);
+
   return {
     gameState,
     startGame,
@@ -430,6 +459,8 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
     moveRight,
     rotate,
     hardDrop,
+    startSoftDrop,
+    stopSoftDrop,
     handleAnimationComplete
   };
 }

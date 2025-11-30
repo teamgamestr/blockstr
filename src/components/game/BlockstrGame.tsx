@@ -68,6 +68,8 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     moveRight,
     rotate,
     hardDrop,
+    startSoftDrop,
+    stopSoftDrop,
     handleAnimationComplete
   } = useGameLogic(blocksFound, handleDifficultyIncrease, handleBlockMined);
 
@@ -112,8 +114,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   }, [musicEnabled, hasStarted, playMusic, stopMusic, isMusicSupported]);
 
   // Keyboard controls
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    // Test mode: 'B' key simulates a new block being found
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (gameConfig.testMode && event.code === 'KeyB') {
       event.preventDefault();
       simulateBlock();
@@ -146,12 +147,11 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
       case 'ArrowDown':
       case 'KeyS':
         event.preventDefault();
-        // Soft drop - just calls hardDrop for simplicity
         hardDrop();
         break;
       case 'Space':
         event.preventDefault();
-        hardDrop();
+        startSoftDrop();
         break;
       case 'KeyP':
       case 'Escape':
@@ -159,15 +159,25 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         pauseGame();
         break;
     }
-  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame, simulateBlock, toast]);
+  }, [gameState.gameStarted, gameState.gameOver, moveLeft, moveRight, rotate, hardDrop, pauseGame, simulateBlock, toast, startSoftDrop]);
+
+  const handleKeyUp = useCallback((event: KeyboardEvent) => {
+    if (event.code === 'Space') {
+      event.preventDefault();
+      stopSoftDrop();
+    }
+  }, [stopSoftDrop]);
 
   useEffect(() => {
-    // Only attach keyboard handler when game has started
     if (!hasStarted) return;
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleKeyPress, hasStarted]);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp, hasStarted]);
 
   // Swipe controls for mobile - on entire document for easier control
   useSwipeControls({

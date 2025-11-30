@@ -40,7 +40,31 @@ checkEnvironment();
 
 // Middleware
 app.use(express.json());
-app.use(express.static(join(__dirname, 'dist')));
+
+// Serve static files with appropriate cache control
+app.use(express.static(join(__dirname, 'dist'), {
+  maxAge: 0, // Don't cache in production to ensure fresh builds
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    // Never cache HTML files
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // Never cache the main JS/CSS bundles to ensure users get latest code
+    else if (path.includes('/assets/index-')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // Long-term cache for fonts and other assets
+    else if (path.match(/\.(woff|woff2|ttf|eot)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // API endpoint for signing scores
 app.post('/api/sign-score', async (req, res) => {
@@ -131,6 +155,10 @@ app.post('/api/sign-score', async (req, res) => {
 
 // Serve index.html for all other routes (SPA routing)
 app.use((req, res) => {
+  // Ensure index.html is never cached
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 

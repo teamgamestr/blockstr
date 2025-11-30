@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { GameBoard } from './GameBoard';
 import { GameStats } from './GameStats';
 import { NextPiecePreview } from './NextPiecePreview';
@@ -12,6 +12,7 @@ import { useBitcoinBlocks } from '@/hooks/useBitcoinBlocks';
 import { useSwipeControls } from '@/hooks/useSwipeControls';
 import { useGamepadControls } from '@/hooks/useGamepadControls';
 import { useToast } from '@/hooks/useToast';
+import { useChiptuneMusic } from '@/hooks/useChiptuneMusic';
 import { cn } from '@/lib/utils';
 import { gameConfig } from '@/config/gameConfig';
 
@@ -25,6 +26,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
   const [gameStartTime, setGameStartTime] = useState(0);
   const [sessionId] = useState(() => `blockstr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true);
   const gameBoardRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -32,12 +34,10 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   // Refs for callbacks to avoid circular dependencies
   const toastRef = useRef(toast);
-  const currentBlockRef = useRef(currentBlock);
 
   useEffect(() => {
     toastRef.current = toast;
-    currentBlockRef.current = currentBlock;
-  }, [toast, currentBlock]);
+  }, [toast]);
 
   // Set session origin if not already set (for main page sessions)
   useEffect(() => {
@@ -70,6 +70,46 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     hardDrop,
     handleAnimationComplete
   } = useGameLogic(blocksFound, handleDifficultyIncrease, handleBlockMined);
+
+  const tempoMultiplier = useMemo(() => {
+    const levelBoost = Math.max(0, gameState.level - 1);
+    return Math.min(2.4, 1 + levelBoost * 0.12);
+  }, [gameState.level]);
+
+  const {
+    isSupported: isMusicSupported,
+    isPlaying: isMusicPlaying,
+    play: playMusic,
+    stop: stopMusic,
+  } = useChiptuneMusic(0.18, tempoMultiplier);
+
+  useEffect(() => {
+    if (!isMusicSupported) {
+      if (musicEnabled) {
+        setMusicEnabled(false);
+      }
+      stopMusic();
+      return;
+    }
+
+    if (!musicEnabled || !hasStarted) {
+      stopMusic();
+      return;
+    }
+
+    let cancelled = false;
+
+    playMusic().catch(() => {
+      if (!cancelled) {
+        setMusicEnabled(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      stopMusic();
+    };
+  }, [musicEnabled, hasStarted, playMusic, stopMusic, isMusicSupported]);
 
   // Keyboard controls
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
@@ -167,6 +207,10 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     startGame();
     setGameStartTime(Date.now());
     resetBlocksFound();
+
+    if (musicEnabled) {
+      playMusic().catch(() => setMusicEnabled(false));
+    }
   };
 
   const handleNewGame = () => {
@@ -185,12 +229,33 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     resetBlocksFound();
   };
 
+  const handleToggleMusic = useCallback(() => {
+    setMusicEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        stopMusic();
+        return next;
+      }
+
+      if (hasStarted) {
+        playMusic().catch(() => setMusicEnabled(false));
+      }
+
+      return next;
+    });
+  }, [hasStarted, playMusic, stopMusic]);
+
   const gameDuration = gameStartTime > 0 ? Date.now() - gameStartTime : 0;
 
   if (!hasStarted) {
     return (
       <div className={cn("h-screen bg-black flex flex-col overflow-hidden", className)}>
-        <GameHeader />
+        <GameHeader
+          musicEnabled={musicEnabled}
+          musicPlaying={isMusicPlaying}
+          isMusicSupported={isMusicSupported}
+          onToggleMusic={handleToggleMusic}
+        />
         <div className="flex items-center justify-center flex-1 overflow-y-auto">
           <PaymentGate onPaymentComplete={handlePaymentComplete} />
         </div>
@@ -200,7 +265,13 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   return (
     <div className={cn("h-screen bg-black text-white flex flex-col overflow-hidden", className)}>
-      <GameHeader className="flex-shrink-0" />
+      <GameHeader
+        className="flex-shrink-0"
+        musicEnabled={musicEnabled}
+        musicPlaying={isMusicPlaying}
+        isMusicSupported={isMusicSupported}
+        onToggleMusic={handleToggleMusic}
+      />
 
       {/* Mobile Layout */}
       <div className="lg:hidden flex-1 flex flex-col overflow-hidden">

@@ -1,6 +1,29 @@
 {
   "model": "claude-sonnet-4",
   "temperature": 0.2,
+  "provider": {
+    "ppq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "PPQ.AI",
+      "options": {
+        "baseURL": "https://api.ppq.ai/v1"
+      },
+      "models": {
+        "ppq-sonnet": {
+          "name": "PPQ Sonnet"
+        },
+        "ppq-sonnet-4": {
+          "name": "PPQ Sonnet 4"
+        },
+        "ppq-haiku": {
+          "name": "PPQ Haiku"
+        },
+        "ppq-opus": {
+          "name": "PPQ Opus"
+        }
+      }
+    }
+  },
   "mcpServers": {
     "js-dev": {
       "type": "stdio",

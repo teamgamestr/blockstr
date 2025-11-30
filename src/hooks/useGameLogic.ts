@@ -288,7 +288,7 @@ export function useGameLogic(bitcoinBlocks: number, onDifficultyIncrease?: (newL
   // Game loop - uses setInterval for continuous dropping
   useEffect(() => {
     if (gameState.gameStarted && !gameState.gameOver && !gameState.isPaused) {
-      const intervalSpeed = Math.max(20, gameState.softDropActive ? gameState.dropSpeed / 2 : gameState.dropSpeed);
+      const intervalSpeed = Math.max(20, gameState.softDropActive ? gameState.dropSpeed / 4 : gameState.dropSpeed);
       const intervalId = setInterval(dropPiece, intervalSpeed);
       return () => clearInterval(intervalId);
     }

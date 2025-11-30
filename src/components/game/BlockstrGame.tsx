@@ -215,9 +215,11 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
 
   const handleNewGame = () => {
     setShowGameOverModal(false);
-    setShowHowToPlay(true);
+    setHasStarted(false);
+    setShowHowToPlay(false);
     resetGame();
     setGameStartTime(0);
+    resetBlocksFound();
   };
 
   const handleCloseModal = () => {

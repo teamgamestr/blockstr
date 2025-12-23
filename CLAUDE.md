@@ -780,7 +780,7 @@ The project includes an `AppProvider` that manages global application state incl
 
 ```typescript
 const defaultConfig: AppConfig = {
-  theme: "light",
+  theme: "dark",
   relayUrl: "wss://relay.nostr.band",
 };
 ```

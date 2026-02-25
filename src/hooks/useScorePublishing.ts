@@ -78,7 +78,7 @@ Played through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.
 
 ${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
 
-` : ''}#blockstr #gaming #bitcoin #nostr`;
+` : ''}#blockstr #gamestr #gaming #bitcoin #nostr`;
 
     // Create event template (kind 1) - signed by the player
     const eventTemplate: EventTemplate = {
@@ -87,6 +87,7 @@ ${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
       content: message || defaultMessage,
       tags: [
         ["t", "blockstr"],
+        ["t", "gamestr"],
         ["t", "gaming"],
         ["t", "bitcoin"],
         ["t", "nostr"],

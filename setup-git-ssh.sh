@@ -2,7 +2,7 @@
 if [ -n "$GITHUB_SSH_KEY" ]; then
   mkdir -p ~/.ssh
   chmod 700 ~/.ssh
-  echo "$GITHUB_SSH_KEY" > ~/.ssh/github_key
+  echo "$GITHUB_SSH_KEY" | base64 -d > ~/.ssh/github_key
   chmod 600 ~/.ssh/github_key
   cat > ~/.ssh/config << SSHEOF
 Host github.com

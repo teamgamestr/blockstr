@@ -87,7 +87,6 @@ ${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
       content: message || defaultMessage,
       tags: [
         ["t", "blockstr"],
-        ["t", "gamestr"],
         ["t", "gaming"],
         ["t", "bitcoin"],
         ["t", "nostr"],

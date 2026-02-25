@@ -132,7 +132,6 @@ app.post('/api/sign-score', async (req, res) => {
         ["genre", "puzzle"],
         ["genre", "retro"],
         ["genre", "arcade"],
-        ["t", "gamestr"],
         ["alt", `Game score: ${score} in blockstr`]
       ]
     };

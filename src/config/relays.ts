@@ -7,3 +7,5 @@ export const appRelays = [
 ] as const;
 
 export const appRelayUrls = appRelays.map((relay) => relay.url);
+
+export const profileSearchRelayUrls = ['wss://relay.ditto.pub'];

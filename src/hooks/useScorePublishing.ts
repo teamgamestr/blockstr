@@ -67,26 +67,28 @@ export function useScorePublishing() {
     }
   }, [user, canPublishScore, effectivePubkey, nostr]);
 
-  const publishGamePost = useCallback(async (options: ScorePublishingOptions & { message?: string; scoreEventId?: string }) => {
+  const publishGamePost = useCallback(async (options: ScorePublishingOptions & { scoreEventId?: string; scoreUrl?: string }) => {
     if (!user?.signer || !canSharePost) {
       throw new Error('A real Nostr signer is required to share posts');
     }
 
-    const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, message, scoreEventId } = options;
+    const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, scoreEventId, scoreUrl } = options;
 
-    const defaultMessage = `Just mined ${minedScore} points in Blockstr! 🎮⚡
+    const defaultMessage = `I Just mined ${minedScore} points playing Blockstr! 🎮⚡
 
-Played through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.
+I played through ${bitcoinBlocksFound} Bitcoin blocks on ${difficulty} difficulty.
 
-${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
+${mempoolScore > 0 ? `I still had ${mempoolScore} points waiting to be mined! 🫠
 
-` : ''}#blockstr #gamestr #gaming #bitcoin #nostr`;
+` : ''}Check out my score on Gamestr: ${scoreUrl ?? ''}
+
+#blockstr #gamestr #gaming #bitcoin #nostr`;
 
     // Create event template (kind 1) - signed by the player
     const eventTemplate: EventTemplate = {
       kind: 1,
       created_at: Math.floor(Date.now() / 1000),
-      content: message || defaultMessage,
+      content: defaultMessage,
       tags: [
         ["t", "blockstr"],
         ["t", "gaming"],

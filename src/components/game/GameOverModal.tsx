@@ -37,8 +37,9 @@ export function GameOverModal({
   const [hasPublishedScore, setHasPublishedScore] = useState(false);
   const [scoreEventId, setScoreEventId] = useState<string | undefined>();
   const [selectedButton, setSelectedButton] = useState(0); // 0: Publish, 1: Play Again, 2: Logout
-  const { publishScore, publishGamePost, canPublish } = useScorePublishing();
+  const { publishScore, publishGamePost, canPublishScore, canSharePost } = useScorePublishing();
   const loginActions = useLoginActions();
+  const isConferenceMode = typeof window !== 'undefined' && sessionStorage.getItem('blockstr_session_origin') === '/conference';
 
   const publishButtonRef = useRef<HTMLButtonElement>(null);
   const playAgainButtonRef = useRef<HTMLButtonElement>(null);
@@ -48,12 +49,12 @@ export function GameOverModal({
   // Calculate available buttons based on state
   const availableButtons = useCallback((): number[] => {
     const buttons: number[] = [];
-    if (canPublish && !hasPublishedScore) buttons.push(0); // Publish
-    if (canPublish && hasPublishedScore) buttons.push(3); // Share (special case)
+    if (canPublishScore && !hasPublishedScore) buttons.push(0); // Publish
+    if (canSharePost && hasPublishedScore) buttons.push(3); // Share (special case)
     buttons.push(1); // Play Again
     buttons.push(2); // Logout
     return buttons;
-  }, [canPublish, hasPublishedScore]);
+  }, [canPublishScore, canSharePost, hasPublishedScore]);
 
   // Handler functions defined first
   const formatTime = (seconds: number) => {
@@ -63,7 +64,7 @@ export function GameOverModal({
   };
 
   const handlePublishScore = useCallback(async () => {
-    if (!canPublish) return;
+    if (!canPublishScore) return;
 
     setIsPublishing(true);
     try {
@@ -82,10 +83,10 @@ export function GameOverModal({
     } finally {
       setIsPublishing(false);
     }
-  }, [canPublish, publishScore, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration]);
+  }, [canPublishScore, publishScore, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration]);
 
   const handleShareScore = useCallback(async () => {
-    if (!canPublish) return;
+    if (!canSharePost) return;
 
     setIsPublishing(true);
     try {
@@ -105,7 +106,7 @@ export function GameOverModal({
       setIsPublishing(false);
       onClose();
     }
-  }, [canPublish, publishGamePost, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration, customMessage, scoreEventId, onClose]);
+  }, [canSharePost, publishGamePost, sessionId, gameState.minedScore, gameState.mempoolScore, gameState.bitcoinBlocks, gameState.level, duration, customMessage, scoreEventId, onClose]);
 
   const handleNewGame = useCallback(() => {
     setCustomMessage('');
@@ -126,6 +127,15 @@ export function GameOverModal({
     }
   }, [loginActions]);
 
+  const handleClose = useCallback(() => {
+    if (isConferenceMode) {
+      handleLogout();
+      return;
+    }
+
+    onClose();
+  }, [handleLogout, isConferenceMode, onClose]);
+
   // Reset selected button when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -139,11 +149,11 @@ export function GameOverModal({
 
     // Determine which button to focus first
     let firstButton: HTMLButtonElement | null = null;
-    if (canPublish && !hasPublishedScore) {
-      firstButton = publishButtonRef.current;
-    } else if (canPublish && hasPublishedScore) {
-      firstButton = shareButtonRef.current;
-    } else {
+      if (canPublishScore && !hasPublishedScore) {
+        firstButton = publishButtonRef.current;
+      } else if (canSharePost && hasPublishedScore) {
+        firstButton = shareButtonRef.current;
+      } else {
       firstButton = playAgainButtonRef.current;
     }
 
@@ -152,7 +162,7 @@ export function GameOverModal({
         firstButton?.focus();
       }, 100);
     }
-  }, [isOpen, canPublish, hasPublishedScore]);
+  }, [isOpen, canPublishScore, canSharePost, hasPublishedScore]);
 
   // Keyboard navigation - simplified to not interfere with Tab
   useEffect(() => {
@@ -167,9 +177,9 @@ export function GameOverModal({
           e.preventDefault();
           target.blur();
           // Focus first available button
-          if (canPublish && !hasPublishedScore) {
+          if (canPublishScore && !hasPublishedScore) {
             publishButtonRef.current?.focus();
-          } else if (canPublish && hasPublishedScore) {
+          } else if (canSharePost && hasPublishedScore) {
             shareButtonRef.current?.focus();
           } else {
             playAgainButtonRef.current?.focus();
@@ -181,13 +191,13 @@ export function GameOverModal({
       // Escape to close modal
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        handleClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isPublishing, canPublish, hasPublishedScore, onClose]);
+  }, [isOpen, isPublishing, canPublishScore, canSharePost, hasPublishedScore, handleClose]);
 
   // Gamepad controls for modal
   useGamepadMenu({
@@ -200,7 +210,7 @@ export function GameOverModal({
       else if (actualButton === 2) handleLogout();
       else if (actualButton === 3) handleShareScore();
     },
-    onCancel: onClose,
+    onCancel: handleClose,
     onNavigateUp: () => {
       const buttons = availableButtons();
       const newIndex = (selectedButton - 1 + buttons.length) % buttons.length;
@@ -225,7 +235,9 @@ export function GameOverModal({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) handleClose();
+    }}>
       <DialogContent className="bg-black border-red-500 border-2 font-retro text-white max-w-md" data-allow-scroll>
         <DialogHeader>
           <DialogTitle className="text-center text-red-400 text-xl flex items-center justify-center gap-2">
@@ -233,7 +245,7 @@ export function GameOverModal({
             GAME OVER
           </DialogTitle>
           <DialogDescription className="text-center text-gray-400">
-            Final results for this session
+            {isConferenceMode ? 'Play again as this player, or log out for the next player.' : 'Final results for this session'}
           </DialogDescription>
         </DialogHeader>
 
@@ -306,7 +318,7 @@ ${gameState.mempoolScore > 0 ? `Still have ${gameState.mempoolScore.toLocaleStri
 
           {/* Main Action Buttons */}
           <div className="space-y-2">
-            {canPublish && !hasPublishedScore && (
+            {canPublishScore && !hasPublishedScore && (
               <Button
                 ref={publishButtonRef}
                 onClick={handlePublishScore}
@@ -333,11 +345,11 @@ ${gameState.mempoolScore > 0 ? `Still have ${gameState.mempoolScore.toLocaleStri
               className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 focus:bg-gray-800 hover:border-gray-400 focus:border-gray-400 focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black transition-all"
             >
               <LogOut className="w-4 h-4 mr-2" />
-              LOGOUT
+              {isConferenceMode ? 'LOG OUT FOR NEXT PLAYER' : 'LOGOUT'}
             </Button>
           </div>
 
-          {!canPublish && (
+          {!canPublishScore && (
             <div className="text-center text-gray-500 text-sm">
               Login to save and share your scores on Nostr
             </div>
@@ -345,7 +357,7 @@ ${gameState.mempoolScore > 0 ? `Still have ${gameState.mempoolScore.toLocaleStri
 
           {/* Control hints */}
           <div className="text-center text-[0.65rem] text-gray-600 font-retro space-y-1">
-            <div>⌨️ Tab to navigate • Enter to select • ESC to close</div>
+            <div>{isConferenceMode ? '⌨️ Tab to navigate • Enter to select • ESC logs out' : '⌨️ Tab to navigate • Enter to select • ESC to close'}</div>
             <div>🎮 D-Pad/Stick + A button</div>
           </div>
         </div>

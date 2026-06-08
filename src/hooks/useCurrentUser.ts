@@ -155,6 +155,7 @@ export function useCurrentUser() {
     effectivePubkey,
     aliasPubkey: user?.aliasPubkey,
     signingPubkey: user?.pubkey,
+    loginType: logins[0]?.type,
     ...author.data,
   };
 }

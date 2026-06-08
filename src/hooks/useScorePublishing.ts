@@ -15,12 +15,14 @@ interface ScorePublishingOptions {
 
 export function useScorePublishing() {
   const { nostr } = useNostr();
-  const { user, effectivePubkey } = useCurrentUser();
+  const { user, effectivePubkey, loginType } = useCurrentUser();
+  const canPublishScore = loginType === 'extension' || loginType === 'bunker' || loginType === 'nsec' || loginType === 'x-nip05-proxy';
+  const canSharePost = loginType === 'extension' || loginType === 'bunker' || loginType === 'nsec';
 
   const publishScore = useCallback(async (options: ScorePublishingOptions) => {
     console.log('publishScore called with options:', options);
 
-    if (!user) {
+    if (!user || !canPublishScore) {
       console.error('Cannot publish score: user not logged in');
       throw new Error('User must be logged in to publish scores');
     }
@@ -63,11 +65,11 @@ export function useScorePublishing() {
       console.error('Error publishing score:', err);
       throw err;
     }
-  }, [user, effectivePubkey, nostr]);
+  }, [user, canPublishScore, effectivePubkey, nostr]);
 
   const publishGamePost = useCallback(async (options: ScorePublishingOptions & { message?: string; scoreEventId?: string }) => {
-    if (!user?.signer) {
-      throw new Error('User must be logged in to publish posts');
+    if (!user?.signer || !canSharePost) {
+      throw new Error('A real Nostr signer is required to share posts');
     }
 
     const { minedScore, mempoolScore, bitcoinBlocksFound, difficulty, message, scoreEventId } = options;
@@ -101,11 +103,13 @@ ${mempoolScore > 0 ? `Still have ${mempoolScore} points waiting to be mined!
     await nostr.event(signedPost);
 
     return signedPost;
-  }, [user, nostr]);
+  }, [user, canSharePost, nostr]);
 
   return {
     publishScore,
     publishGamePost,
-    canPublish: !!user,
+    canPublish: canPublishScore,
+    canPublishScore,
+    canSharePost,
   };
 }

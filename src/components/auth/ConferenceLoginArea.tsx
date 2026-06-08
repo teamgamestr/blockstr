@@ -12,6 +12,7 @@ import QRCode from 'qrcode';
 import { generateSecretKey, getPublicKey, nip44 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { NLogin } from '@nostrify/react/login';
+import { NConnectSigner, NSecSigner } from '@jsr/nostrify__nostrify';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 import { useProfileSearch } from '@/hooks/useProfileSearch';
@@ -159,15 +160,24 @@ export function ConferenceLoginArea({
                     // Convert our client secret key to nsec format
                     const clientNsec = nip19.nsecEncode(secretKey);
 
+                    const remoteSigner = new NConnectSigner({
+                      relay: nostr.group(appRelayUrls),
+                      pubkey: remoteSignerPubkey,
+                      signer: new NSecSigner(secretKey),
+                      timeout: 60_000,
+                    });
+                    const userPubkey = await remoteSigner.getPublicKey();
+
                     console.log('[ConferenceLoginArea] Creating bunker login with:', {
                       remoteSignerPubkey,
+                      userPubkey,
                       relayUrls: appRelayUrls,
                     });
 
                     // Create a NLoginBunker object manually
                     const bunkerLogin = new NLogin(
                       'bunker',
-                      remoteSignerPubkey,
+                      userPubkey,
                       {
                         bunkerPubkey: remoteSignerPubkey,
                         clientNsec: clientNsec,

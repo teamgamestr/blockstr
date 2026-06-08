@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { NLogin, type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
-import { NSecSigner } from '@jsr/nostrify__nostrify';
+import { NConnectSigner, type NPool, NSecSigner } from '@jsr/nostrify__nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 
 import { useAuthor } from './useAuthor.ts';
@@ -30,6 +30,18 @@ interface Nip05ProxyLogin {
   };
 }
 
+interface BunkerLogin {
+  id: string;
+  type: 'bunker';
+  pubkey: string;
+  createdAt: string;
+  data: {
+    bunkerPubkey: string;
+    clientNsec: `nsec1${string}`;
+    relays: string[];
+  };
+}
+
 interface ConferenceUserExtras {
   aliasPubkey?: string;
   nip05?: string;
@@ -43,6 +55,10 @@ function isNip05ReadonlyLogin(login: NLoginType): login is Nip05ReadonlyLogin {
 
 function isNip05ProxyLogin(login: NLoginType): login is Nip05ProxyLogin {
   return login.type === 'x-nip05-proxy';
+}
+
+function isBunkerLogin(login: NLoginType): login is BunkerLogin {
+  return login.type === 'bunker';
 }
 
 function createReadOnlyUser(login: Nip05ReadonlyLogin): NUser {
@@ -80,7 +96,28 @@ function createProxyUser(login: Nip05ProxyLogin): NUser {
   return user;
 }
 
+function createBunkerUser(login: BunkerLogin, nostr: NPool): NUser {
+  const decoded = nip19.decode(login.data.clientNsec);
+  if (decoded.type !== 'nsec') {
+    throw new Error('Invalid client secret stored for bunker login');
+  }
+
+  const clientSigner = new NSecSigner(decoded.data);
+
+  return new NUser(
+    login.type,
+    login.pubkey,
+    new NConnectSigner({
+      relay: nostr.group(login.data.relays),
+      pubkey: login.data.bunkerPubkey,
+      signer: clientSigner,
+      timeout: 60_000,
+    }),
+  );
+}
+
 const upgradedLegacyLogins = new Set<string>();
+const upgradedBunkerLogins = new Set<string>();
 
 export function useCurrentUser() {
   const { nostr } = useNostr();
@@ -111,12 +148,42 @@ export function useCurrentUser() {
     }
   }, [logins, addLogin, removeLogin]);
 
+  useEffect(() => {
+    const staleBunkerLogins = logins.filter((login): login is BunkerLogin =>
+      isBunkerLogin(login) &&
+      login.pubkey === login.data.bunkerPubkey &&
+      !upgradedBunkerLogins.has(login.id)
+    );
+    if (staleBunkerLogins.length === 0) return;
+
+    staleBunkerLogins.forEach((login) => upgradedBunkerLogins.add(login.id));
+
+    for (const login of staleBunkerLogins) {
+      const user = createBunkerUser(login, nostr);
+
+      user.signer.getPublicKey()
+        .then((userPubkey) => {
+          if (userPubkey === login.pubkey) return;
+
+          const upgradedLogin = new NLogin('bunker', userPubkey, login.data);
+          addLogin(upgradedLogin);
+          removeLogin(login.id);
+        })
+        .catch((error) => {
+          console.warn('Unable to upgrade bunker login pubkey', login.id, error);
+        });
+    }
+  }, [logins, nostr, addLogin, removeLogin]);
+
   const loginToUser = useCallback((login: NLoginType): NUser  => {
     switch (login.type) {
       case 'nsec': // Nostr login with secret key
         return NUser.fromNsecLogin(login);
       case 'bunker': // Nostr login with NIP-46 "bunker://" URI
-        return NUser.fromBunkerLogin(login, nostr);
+        if (isBunkerLogin(login)) {
+          return createBunkerUser(login, nostr);
+        }
+        throw new Error('Invalid bunker login');
       case 'extension': // Nostr login with NIP-07 browser extension
         return NUser.fromExtensionLogin(login);
       default:

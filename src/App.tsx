@@ -12,6 +12,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
+import { appRelays } from '@/config/relays';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -32,20 +33,13 @@ const queryClient = new QueryClient({
 
 const defaultConfig: AppConfig = {
   theme: "dark",
-  relayUrl: "wss://relay.damus.io",
+  relayUrl: appRelays[0].url,
 };
-
-const presetRelays = [
-  { url: 'wss://ditto.pub/relay', name: 'Ditto' },
-  { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
-  { url: 'wss://relay.damus.io', name: 'Damus' },
-  { url: 'wss://relay.primal.net', name: 'Primal' },
-];
 
 export function App() {
   return (
     <UnheadProvider head={head}>
-      <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
+      <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={[...appRelays]}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>

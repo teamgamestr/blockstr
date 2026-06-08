@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.tsx';
-import { RelaySelector } from '@/components/RelaySelector';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
@@ -43,9 +42,6 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-56 p-2 bg-black border-gray-700 text-white font-retro'>
-        <div className='text-[0.65rem] px-2 py-1.5 text-green-400 uppercase'>Switch Relay</div>
-        <RelaySelector className="w-full" />
-        <DropdownMenuSeparator className="bg-gray-700" />
         <div className='text-[0.65rem] px-2 py-1.5 text-green-400 uppercase'>Switch Account</div>
         {otherUsers.map((user) => (
           <DropdownMenuItem

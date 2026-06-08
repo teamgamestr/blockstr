@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
-import { useAppContext } from '@/hooks/useAppContext';
+import { appRelayUrls } from '@/config/relays';
 import { cn } from '@/lib/utils';
 import QRCode from 'qrcode';
 import { generateSecretKey, getPublicKey, nip44 } from 'nostr-tools';
@@ -27,7 +27,6 @@ export function ConferenceLoginArea({
   qrCodeExpiryMinutes = 5
 }: ConferenceLoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
-  const { config } = useAppContext();
   const [nip05Input, setNip05Input] = useState('');
   const [isLoadingNip05, setIsLoadingNip05] = useState(false);
   const [error, setError] = useState<string>('');
@@ -75,17 +74,14 @@ export function ConferenceLoginArea({
 
       setConnectionSecret(secret);
 
-      // Get relay URL from app config
-      const relayUrl = config.relayUrl;
-
       // Build nostrconnect:// URI according to NIP-46
       const params = new URLSearchParams({
-        relay: relayUrl,
         secret: secret,
         perms: 'sign_event,nip04_encrypt,nip04_decrypt,nip44_encrypt,nip44_decrypt',
         name: 'Blockstr',
         url: window.location.origin,
       });
+      appRelayUrls.forEach((relayUrl) => params.append('relay', relayUrl));
 
       const nostrConnectUri = `nostrconnect://${pubkey}?${params.toString()}`;
 
@@ -106,7 +102,7 @@ export function ConferenceLoginArea({
       subscriptionRef.current = () => controller.abort();
 
       console.log('[ConferenceLoginArea] Setting up subscription for pubkey:', pubkey);
-      console.log('[ConferenceLoginArea] Relay URL:', relayUrl);
+      console.log('[ConferenceLoginArea] Relay URLs:', appRelayUrls);
 
       // Subscribe to kind:24133 events p-tagged to our client pubkey
       const sub = nostr.req(
@@ -163,7 +159,7 @@ export function ConferenceLoginArea({
 
                     console.log('[ConferenceLoginArea] Creating bunker login with:', {
                       remoteSignerPubkey,
-                      relayUrl
+                      relayUrls: appRelayUrls,
                     });
 
                     // Create a NLoginBunker object manually
@@ -173,7 +169,7 @@ export function ConferenceLoginArea({
                       {
                         bunkerPubkey: remoteSignerPubkey,
                         clientNsec: clientNsec,
-                        relays: [relayUrl]
+                        relays: appRelayUrls,
                       }
                     );
 
@@ -220,7 +216,7 @@ export function ConferenceLoginArea({
       setIsGeneratingQR(false);
       isGeneratingRef.current = false;
     }
-  }, [nostr, addLogin, onLoginComplete, config.relayUrl]);
+  }, [nostr, addLogin, onLoginComplete]);
 
   // Generate QR code on mount and set up periodic regeneration
   useEffect(() => {

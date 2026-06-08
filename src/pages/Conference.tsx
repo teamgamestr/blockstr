@@ -1,22 +1,24 @@
 import { useSeoMeta } from '@unhead/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLoginActions } from '@/hooks/useLoginActions';
-import { useAppContext } from '@/hooks/useAppContext';
+import { appRelayUrls } from '@/config/relays';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { BlockstrGame } from '@/components/game/BlockstrGame';
 import { QrCode, Mail, UserX, Zap } from 'lucide-react';
 import QRCodeLib from 'qrcode';
 import { generateSecretKey, getPublicKey, nip44, nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { NLogin } from '@nostrify/react/login';
 import { useNostrLogin } from '@nostrify/react/login';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 const Conference = () => {
-  const { config } = useAppContext();
   const login = useLoginActions();
+  const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const { addLogin } = useNostrLogin();
 
@@ -53,17 +55,14 @@ const Conference = () => {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-      // Get relay URL from app config
-      const relayUrl = config.relayUrl;
-
       // Build nostrconnect:// URI according to NIP-46
       const params = new URLSearchParams({
-        relay: relayUrl,
         secret: secret,
         perms: 'sign_event,nip04_encrypt,nip04_decrypt,nip44_encrypt,nip44_decrypt',
         name: 'Blockstr',
         url: window.location.origin,
       });
+      appRelayUrls.forEach((relayUrl) => params.append('relay', relayUrl));
 
       const nostrConnectUri = `nostrconnect://${pubkey}?${params.toString()}`;
 
@@ -141,7 +140,7 @@ const Conference = () => {
                       {
                         bunkerPubkey: remoteSignerPubkey,
                         clientNsec: clientNsec,
-                        relays: [relayUrl]
+                        relays: appRelayUrls,
                       }
                     );
 
@@ -162,8 +161,6 @@ const Conference = () => {
 
                     // Close dialog and redirect to game
                     setShowQrDialog(false);
-                    console.log('[Conference] Redirecting to /');
-                    window.location.href = '/';
                   } catch (e: unknown) {
                     const error = e as Error;
                     console.error('[Conference] Failed to create bunker login:', error);
@@ -188,7 +185,7 @@ const Conference = () => {
     } finally {
       setIsGeneratingQr(false);
     }
-  }, [config.relayUrl, nostr, addLogin]);
+  }, [nostr, addLogin]);
 
   // Generate QR code when dialog opens
   useEffect(() => {
@@ -250,9 +247,6 @@ const Conference = () => {
         source: 'conference-nip05'
       });
 
-      // Redirect to game
-      console.log('[Conference] Redirecting to / (NIP-05)');
-      window.location.href = '/';
     } catch (e: unknown) {
       const error = e as Error;
       console.error('NIP-05 lookup failed:', error);
@@ -268,9 +262,6 @@ const Conference = () => {
     console.log('[Conference] Set session origin to /conference (Anonymous)');
 
     login.anonymous();
-
-    console.log('[Conference] Redirecting to / (Anonymous)');
-    window.location.href = '/';
   };
 
   const handleShowQrCode = () => {
@@ -286,6 +277,10 @@ const Conference = () => {
       subscriptionRef.current = null;
     }
   };
+
+  if (user) {
+    return <BlockstrGame />;
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">

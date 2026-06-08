@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useAppContext } from '@/hooks/useAppContext';
 import { useNWC } from '@/hooks/useNWCContext';
 import type { NWCConnection } from '@/hooks/useNWC';
 import { nip57 } from 'nostr-tools';
@@ -10,6 +9,7 @@ import type { WebLNProvider } from 'webln';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { appRelayUrls } from '@/config/relays';
 
 type ZapResult = {
   invoice: string;
@@ -25,7 +25,6 @@ export function useZaps(
 ) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { config } = useAppContext();
   const queryClient = useQueryClient();
 
   // Handle the case where an empty array is passed (from ZapButton when external data is provided)
@@ -248,22 +247,19 @@ export function useZaps(
           hasEvent: !!authorData?.event,
           pubkey: actualTarget.pubkey,
         });
-        setIsZapping(false);
-        return null;
+        throw new Error('Could not load zap recipient profile. Try another relay or try again.');
       }
 
       const { lud06, lud16 } = authorData.metadata;
       if (!lud06 && !lud16) {
         console.error('Lightning address missing from profile:', authorData.metadata);
-        setIsZapping(false);
-        return null;
+        throw new Error('Zap recipient does not have a Lightning address on their profile.');
       }
 
       // Get zap endpoint using the old reliable method
       const zapEndpoint = await nip57.getZapEndpoint(authorData.event);
       if (!zapEndpoint) {
-        setIsZapping(false);
-        return null;
+        throw new Error('Could not find a Nostr zap endpoint for this recipient.');
       }
 
       // Create zap request - use appropriate event format based on kind
@@ -282,7 +278,7 @@ export function useZaps(
         profile: actualTarget.pubkey,
         event,
         amount: zapAmount,
-        relays: [config.relayUrl],
+        relays: appRelayUrls,
         comment,
       });
 
@@ -293,7 +289,11 @@ export function useZaps(
       const signedZapRequest = await user.signer.signEvent(zapRequest);
 
       try {
-        const res = await fetch(`${zapEndpoint}?amount=${zapAmount}&nostr=${encodeURI(JSON.stringify(signedZapRequest))}`);
+        const callbackUrl = new URL(zapEndpoint);
+        callbackUrl.searchParams.set('amount', String(zapAmount));
+        callbackUrl.searchParams.set('nostr', JSON.stringify(signedZapRequest));
+
+        const res = await fetch(callbackUrl.toString());
         const responseData = await res.json();
 
         if (!res.ok) {
@@ -367,12 +367,12 @@ export function useZaps(
       } catch (err) {
         console.error('Zap error:', err);
         setIsZapping(false);
-        return null;
+        throw err;
       }
     } catch (err) {
       console.error('Zap error:', err);
       setIsZapping(false);
-      return null;
+      throw err;
     }
   };
 

@@ -73,18 +73,11 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
       const storedOrigin = sessionStorage.getItem('blockstr_session_origin');
-      const cameFromConference = typeof document !== 'undefined' && !!document.referrer && document.referrer.includes('/conference');
       const queryConference = params.get('mode') === 'conference' || params.get('conference') === '1';
 
       if (queryConference || path === '/conference') {
         sessionStorage.setItem('blockstr_session_origin', '/conference');
         setIsConferenceMode(true);
-        return;
-      }
-
-      if (path === '/' && storedOrigin === '/conference' && !cameFromConference) {
-        sessionStorage.setItem('blockstr_session_origin', '/');
-        setIsConferenceMode(false);
         return;
       }
 
@@ -118,9 +111,10 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   const createAnonymousSession = useCallback(() => {
     loginActions.anonymous();
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('blockstr_session_origin', '/');
+      const isConference = window.location.pathname === '/conference' || isConferenceMode;
+      sessionStorage.setItem('blockstr_session_origin', isConference ? '/conference' : '/');
     }
-  }, [loginActions]);
+  }, [isConferenceMode, loginActions]);
 
   const shouldSkipAutomaticPayment = isConferenceMode || (!webln && !activeNWC);
 
@@ -269,6 +263,12 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
             'Show the QR code to your wallet. We are watching for the zap receipt automatically.'
           );
         }
+      } else {
+        setStatusMessage({
+          title: 'Invoice unavailable',
+          description: 'The Lightning service did not return an invoice. Please try again.',
+          tone: 'error',
+        });
       }
     } catch (error) {
       console.error('Payment failed:', error);

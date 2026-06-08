@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { cn } from '@/lib/utils';
+import { appRelayUrls } from '@/config/relays';
 import QRCode from 'qrcode';
 import { generateSecretKey, getPublicKey, nip44, nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
@@ -105,17 +106,14 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
 
       setConnectionSecret(secret);
 
-      // Get relay URL from app config (using Damus as default)
-      const relayUrl = 'wss://relay.damus.io';
-
       // Build nostrconnect:// URI according to NIP-46
       const params = new URLSearchParams({
-        relay: relayUrl,
         secret: secret,
         perms: 'sign_event,nip04_encrypt,nip04_decrypt,nip44_encrypt,nip44_decrypt',
         name: 'Blockstr',
         url: window.location.origin,
       });
+      appRelayUrls.forEach((relayUrl) => params.append('relay', relayUrl));
 
       const nostrConnectUri = `nostrconnect://${pubkey}?${params.toString()}`;
       setNostrConnectUri(nostrConnectUri);
@@ -209,7 +207,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                       {
                         bunkerPubkey: remoteSignerPubkey,
                         clientNsec: clientNsec,
-                        relays: [relayUrl]
+                        relays: appRelayUrls,
                       }
                     );
 

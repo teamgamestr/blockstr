@@ -6,6 +6,7 @@ import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
+import { appRelays } from '@/config/relays';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -23,12 +24,12 @@ export function TestApp({ children }: TestAppProps) {
 
   const defaultConfig: AppConfig = {
     theme: 'light',
-    relayUrl: 'wss://relay.nostr.band',
+    relayUrl: appRelays[0].url,
   };
 
   return (
     <UnheadProvider head={head}>
-      <AppProvider storageKey='test-app-config' defaultConfig={defaultConfig}>
+      <AppProvider storageKey='test-app-config' defaultConfig={defaultConfig} presetRelays={[...appRelays]}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
             <NostrProvider>

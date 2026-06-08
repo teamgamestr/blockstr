@@ -121,7 +121,9 @@ export function GameOverModal({
     loginActions.logout();
 
     // Redirect to the appropriate page
-    window.location.href = sessionOrigin;
+    if (window.location.pathname !== sessionOrigin) {
+      window.location.href = sessionOrigin;
+    }
   }, [loginActions]);
 
   // Reset selected button when modal opens

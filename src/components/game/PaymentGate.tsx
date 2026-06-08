@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useGamepadMenu } from '@/hooks/useGamepadMenu';
 import { useWallet } from '@/hooks/useWallet';
@@ -53,7 +51,6 @@ function StatusBanner({ status }: { status: StatusMessage | null }) {
 export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedButton, setSelectedButton] = useState(0); // 0: Pay, 1: Free Play
-  const [customMemo, setCustomMemo] = useState(gameConfig.zapMemo);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const { user } = useCurrentUser();
   const { webln, activeNWC } = useWallet();
@@ -245,7 +242,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
       resetInvoice();
 
       // Send zap to Blockstr account
-      const result = await zap(gameConfig.costToPlay, customMemo);
+      const result = await zap(gameConfig.costToPlay, '');
 
       if (result?.invoice) {
         if (result.autoPaid) {
@@ -280,7 +277,7 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [user, isConferenceMode, stopWaiting, trackInvoice, resetInvoice, zap, customMemo, startReceiptWait, setStatusMessage]);
+  }, [user, isConferenceMode, stopWaiting, trackInvoice, resetInvoice, zap, startReceiptWait, setStatusMessage]);
 
   // Auto-generate invoice in conference mode when user is logged in
   useEffect(() => {
@@ -666,22 +663,6 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
                       CONNECT WALLET
                     </Button>
                   </WalletModal>
-                </div>
-              )}
-
-              {/* Custom memo input - hide in conference mode */}
-              {!isConferenceMode && (
-                <div className="space-y-2">
-                  <Label htmlFor="memo" className="text-xs text-gray-400 font-retro">
-                    ZAP MESSAGE (OPTIONAL)
-                  </Label>
-                  <Input
-                    id="memo"
-                    value={customMemo}
-                    onChange={(e) => setCustomMemo(e.target.value)}
-                    placeholder={gameConfig.zapMemo}
-                    className="bg-gray-900 border-gray-700 text-white font-retro text-xs"
-                  />
                 </div>
               )}
 

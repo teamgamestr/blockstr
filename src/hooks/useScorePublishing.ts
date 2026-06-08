@@ -82,7 +82,7 @@ ${mempoolScore > 0 ? `I still had ${mempoolScore} points waiting to be mined! ðŸ
 
 ` : ''}Check out my score on Gamestr: ${scoreUrl ?? ''}
 
-#blockstr #gamestr #gaming #bitcoin #nostr`;
+#blockstr #gamestr`;
 
     // Create event template (kind 1) - signed by the player
     const eventTemplate: EventTemplate = {

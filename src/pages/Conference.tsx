@@ -16,6 +16,11 @@ import { NLogin } from '@nostrify/react/login';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useProfileSearch } from '@/hooks/useProfileSearch';
+import { useGamepadMenu } from '@/hooks/useGamepadMenu';
+
+type ConferenceMenuItem = 'qr' | 'nip05-input' | 'nip05-submit' | 'anonymous';
+
+const CONFERENCE_MENU_ITEMS: ConferenceMenuItem[] = ['qr', 'nip05-input', 'nip05-submit', 'anonymous'];
 
 const Conference = () => {
   const login = useLoginActions();
@@ -31,6 +36,11 @@ const Conference = () => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const subscriptionRef = useRef<(() => void) | null>(null);
+  const qrButtonRef = useRef<HTMLButtonElement>(null);
+  const nip05InputRef = useRef<HTMLInputElement>(null);
+  const nip05SubmitRef = useRef<HTMLButtonElement>(null);
+  const anonymousButtonRef = useRef<HTMLButtonElement>(null);
+  const [selectedMenuIndex, setSelectedMenuIndex] = useState(0);
 
   useSeoMeta({
     title: 'Conference Mode - Blockstr',
@@ -206,7 +216,7 @@ const Conference = () => {
     };
   }, []);
 
-  const handleNip05Login = async () => {
+  const handleNip05Login = useCallback(async () => {
     if (!nip05Input.trim()) {
       setError('Please enter a NIP-05 identifier');
       return;
@@ -256,20 +266,20 @@ const Conference = () => {
     } finally {
       setIsLoadingNip05(false);
     }
-  };
+  }, [login, nip05Input]);
 
-  const handleAnonymousLogin = () => {
+  const handleAnonymousLogin = useCallback(() => {
     // Set session origin BEFORE login
     sessionStorage.setItem('blockstr_session_origin', '/conference');
     console.log('[Conference] Set session origin to /conference (Anonymous)');
 
     login.anonymous();
-  };
+  }, [login]);
 
-  const handleShowQrCode = () => {
+  const handleShowQrCode = useCallback(() => {
     setShowQrDialog(true);
     setQrCodeDataUrl(''); // Reset QR code to generate fresh one
-  };
+  }, []);
 
   const handleCloseQrDialog = () => {
     setShowQrDialog(false);
@@ -279,6 +289,78 @@ const Conference = () => {
       subscriptionRef.current = null;
     }
   };
+
+  const focusMenuItem = useCallback((index: number) => {
+    const nextIndex = (index + CONFERENCE_MENU_ITEMS.length) % CONFERENCE_MENU_ITEMS.length;
+    setSelectedMenuIndex(nextIndex);
+
+    const item = CONFERENCE_MENU_ITEMS[nextIndex];
+    if (item === 'qr') qrButtonRef.current?.focus();
+    if (item === 'nip05-input') nip05InputRef.current?.focus();
+    if (item === 'nip05-submit') nip05SubmitRef.current?.focus();
+    if (item === 'anonymous') anonymousButtonRef.current?.focus();
+  }, []);
+
+  const activateMenuItem = useCallback(() => {
+    const item = CONFERENCE_MENU_ITEMS[selectedMenuIndex];
+    if (item === 'qr') handleShowQrCode();
+    if (item === 'nip05-input') nip05InputRef.current?.focus();
+    if (item === 'nip05-submit' && !isLoadingNip05 && nip05Input.trim()) void handleNip05Login();
+    if (item === 'anonymous') handleAnonymousLogin();
+  }, [handleShowQrCode, handleAnonymousLogin, handleNip05Login, isLoadingNip05, nip05Input, selectedMenuIndex]);
+
+  useGamepadMenu({
+    enabled: !user && !showQrDialog,
+    onConfirm: activateMenuItem,
+    onNavigateUp: () => focusMenuItem(selectedMenuIndex - 1),
+    onNavigateDown: () => focusMenuItem(selectedMenuIndex + 1),
+    onNavigateLeft: () => focusMenuItem(selectedMenuIndex - 1),
+    onNavigateRight: () => focusMenuItem(selectedMenuIndex + 1),
+  });
+
+  useEffect(() => {
+    if (user || showQrDialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+
+      if (isTyping) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          target.blur();
+          focusMenuItem(selectedMenuIndex);
+        }
+        return;
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        focusMenuItem(selectedMenuIndex - 1);
+        return;
+      }
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        focusMenuItem(selectedMenuIndex + 1);
+        return;
+      }
+
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activateMenuItem();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activateMenuItem, focusMenuItem, selectedMenuIndex, showQrDialog, user]);
+
+  useEffect(() => {
+    if (!user && !showQrDialog) {
+      qrButtonRef.current?.focus();
+    }
+  }, [showQrDialog, user]);
 
   if (user) {
     return <BlockstrGame />;
@@ -311,8 +393,10 @@ const Conference = () => {
             </p>
 
             <Button
+              ref={qrButtonRef}
               onClick={handleShowQrCode}
-              className="w-full bg-green-400 text-black hover:bg-green-500 font-retro text-xs uppercase"
+              onFocus={() => setSelectedMenuIndex(0)}
+              className="w-full bg-green-400 text-black hover:bg-green-500 font-retro text-xs uppercase focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black"
             >
               Show QR Code
             </Button>
@@ -329,6 +413,7 @@ const Conference = () => {
 
             <div className="space-y-2">
               <Input
+                ref={nip05InputRef}
                 type="text"
                 value={nip05Input}
                 onChange={(e) => {
@@ -336,7 +421,8 @@ const Conference = () => {
                   if (error) setError('');
                 }}
                 placeholder="name@domain.com"
-                className="bg-black border-green-400 text-green-400 font-retro text-sm placeholder:text-gray-600"
+                onFocus={() => setSelectedMenuIndex(1)}
+                className="bg-black border-green-400 text-green-400 font-retro text-sm placeholder:text-gray-600 focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black"
                 disabled={isLoadingNip05}
               />
               {profileSearch.canSearch && (
@@ -367,9 +453,11 @@ const Conference = () => {
                 </div>
               )}
               <Button
+                ref={nip05SubmitRef}
                 onClick={handleNip05Login}
                 disabled={isLoadingNip05 || !nip05Input.trim()}
-                className="w-full bg-green-400 text-black hover:bg-green-500 font-retro text-xs uppercase"
+                onFocus={() => setSelectedMenuIndex(2)}
+                className="w-full bg-green-400 text-black hover:bg-green-500 font-retro text-xs uppercase focus:ring-4 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-black"
               >
                 {isLoadingNip05 ? 'Verifying...' : 'Login with NIP-05'}
               </Button>
@@ -390,9 +478,11 @@ const Conference = () => {
             </div>
 
             <Button
+              ref={anonymousButtonRef}
               onClick={handleAnonymousLogin}
               variant="outline"
-              className="w-full border-gray-600 text-gray-400 hover:bg-gray-900 hover:text-gray-300 font-retro text-xs uppercase"
+              onFocus={() => setSelectedMenuIndex(3)}
+              className="w-full border-gray-600 text-gray-400 hover:bg-gray-900 hover:text-gray-300 font-retro text-xs uppercase focus:ring-4 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-black"
             >
               Continue Without Login
             </Button>

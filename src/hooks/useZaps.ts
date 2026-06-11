@@ -9,7 +9,7 @@ import type { WebLNProvider } from 'webln';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
-import { appRelayUrls } from '@/config/relays';
+import { PAYMENT_RELAYS } from '@/lib/paymentRelays';
 
 type ZapResult = {
   invoice: string;
@@ -105,7 +105,7 @@ export function useZaps(
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      const events = await nostr.query(zapFilters, { signal });
+      const events = await nostr.group(PAYMENT_RELAYS).query(zapFilters, { signal });
       return events;
     },
     enabled: !!actualTarget?.id && zapFilters.length > 0,
@@ -122,7 +122,7 @@ export function useZaps(
       ...filter,
       since,
     }));
-    const sub = nostr.req(realtimeFilters, { signal: controller.signal });
+    const sub = nostr.group(PAYMENT_RELAYS).req(realtimeFilters, { signal: controller.signal });
 
     (async () => {
       try {
@@ -278,7 +278,7 @@ export function useZaps(
         profile: actualTarget.pubkey,
         event,
         amount: zapAmount,
-        relays: appRelayUrls,
+        relays: PAYMENT_RELAYS,
         comment,
       });
 

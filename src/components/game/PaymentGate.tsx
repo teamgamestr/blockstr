@@ -217,9 +217,11 @@ export function PaymentGate({ onPaymentComplete, className }: PaymentGateProps) 
   }, [zaps, trackedInvoice, user, finalizePayment]);
 
   useEffect(() => {
-    if (isAwaitingReceipt) {
-      void refetch();
-    }
+    if (!isAwaitingReceipt) return undefined;
+
+    void refetch();
+    const interval = window.setInterval(() => void refetch(), 5000);
+    return () => window.clearInterval(interval);
   }, [isAwaitingReceipt, refetch]);
 
   // Handler functions defined first

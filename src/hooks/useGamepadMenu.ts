@@ -73,8 +73,10 @@ export function useGamepadMenu({
   const pollGamepad = useCallback(() => {
     if (!enabled) return;
 
+    if (typeof navigator.getGamepads !== 'function') return;
+
     const gamepads = navigator.getGamepads();
-    const gamepad = gamepads[0]; // Use first connected gamepad
+    const gamepad = Array.from(gamepads).find(Boolean); // Use first connected gamepad
 
     if (!gamepad) {
       animationFrameRef.current = requestAnimationFrame(pollGamepad);

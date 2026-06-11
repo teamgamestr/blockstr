@@ -129,9 +129,10 @@ export function HowToPlayModal({ isOpen, onStart }: HowToPlayModalProps) {
                 CONTROLLER
               </h3>
               <div className="space-y-1 text-[0.65rem] text-gray-300">
-                <p>• D-Pad / Stick: Move & rotate</p>
+                <p>• D-Pad / Stick: Move, rotate, soft drop</p>
                 <p>• A / X: Rotate piece</p>
-                <p>• B: Hard drop</p>
+                <p>• B / Y / LT: Hard drop</p>
+                <p>• Down / RT: Soft drop hold</p>
                 <p>• Bumpers: Move left/right</p>
                 <p>• Start: Pause / Select</p>
               </div>

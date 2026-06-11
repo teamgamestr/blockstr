@@ -194,6 +194,8 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
     onMoveRight: moveRight,
     onRotate: rotate,
     onHardDrop: hardDrop,
+    onSoftDropStart: startSoftDrop,
+    onSoftDropStop: stopSoftDrop,
     onPause: pauseGame,
     enabled: gameState.gameStarted && !gameState.gameOver,
   });

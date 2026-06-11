@@ -5,6 +5,8 @@ interface GamepadControlsOptions {
   onMoveRight: () => void;
   onRotate: () => void;
   onHardDrop: () => void;
+  onSoftDropStart: () => void;
+  onSoftDropStop: () => void;
   onPause?: () => void;
   enabled: boolean;
 }
@@ -52,11 +54,14 @@ export function useGamepadControls({
   onMoveRight,
   onRotate,
   onHardDrop,
+  onSoftDropStart,
+  onSoftDropStop,
   onPause,
   enabled,
 }: GamepadControlsOptions) {
   const lastActionTimeRef = useRef<Record<string, number>>({});
   const animationFrameRef = useRef<number>();
+  const softDropActiveRef = useRef(false);
 
   const canPerformAction = useCallback((action: string): boolean => {
     const now = Date.now();
@@ -71,10 +76,16 @@ export function useGamepadControls({
   const pollGamepad = useCallback(() => {
     if (!enabled) return;
 
+    if (typeof navigator.getGamepads !== 'function') return;
+
     const gamepads = navigator.getGamepads();
-    const gamepad = gamepads[0]; // Use first connected gamepad
+    const gamepad = Array.from(gamepads).find(Boolean); // Use first connected gamepad
 
     if (!gamepad) {
+      if (softDropActiveRef.current) {
+        softDropActiveRef.current = false;
+        onSoftDropStop();
+      }
       animationFrameRef.current = requestAnimationFrame(pollGamepad);
       return;
     }
@@ -89,10 +100,6 @@ export function useGamepadControls({
     if (gamepad.buttons[BUTTON_MAP.DPAD_UP]?.pressed && canPerformAction('dpad_up')) {
       onRotate();
     }
-    if (gamepad.buttons[BUTTON_MAP.DPAD_DOWN]?.pressed && canPerformAction('dpad_down')) {
-      onHardDrop();
-    }
-
     // Left analog stick (with deadzone)
     const leftStickX = gamepad.axes[AXIS_MAP.LEFT_STICK_X];
     const leftStickY = gamepad.axes[AXIS_MAP.LEFT_STICK_Y];
@@ -106,8 +113,17 @@ export function useGamepadControls({
     if (leftStickY < -DEADZONE && canPerformAction('stick_up')) {
       onRotate();
     }
-    if (leftStickY > DEADZONE && canPerformAction('stick_down')) {
-      onHardDrop();
+    const softDropPressed =
+      gamepad.buttons[BUTTON_MAP.DPAD_DOWN]?.pressed ||
+      gamepad.buttons[BUTTON_MAP.RT]?.pressed ||
+      leftStickY > DEADZONE;
+
+    if (softDropPressed && !softDropActiveRef.current) {
+      softDropActiveRef.current = true;
+      onSoftDropStart();
+    } else if (!softDropPressed && softDropActiveRef.current) {
+      softDropActiveRef.current = false;
+      onSoftDropStop();
     }
 
     // Face buttons
@@ -119,6 +135,12 @@ export function useGamepadControls({
     }
     if (gamepad.buttons[BUTTON_MAP.X]?.pressed && canPerformAction('button_x')) {
       onRotate(); // X button also rotates
+    }
+    if (gamepad.buttons[BUTTON_MAP.Y]?.pressed && canPerformAction('button_y')) {
+      onHardDrop(); // Y button also hard drops
+    }
+    if (gamepad.buttons[BUTTON_MAP.LT]?.pressed && canPerformAction('lt')) {
+      onHardDrop();
     }
 
     // Shoulder buttons for movement
@@ -136,7 +158,7 @@ export function useGamepadControls({
 
     // Continue polling
     animationFrameRef.current = requestAnimationFrame(pollGamepad);
-  }, [enabled, onMoveLeft, onMoveRight, onRotate, onHardDrop, onPause, canPerformAction]);
+  }, [enabled, onMoveLeft, onMoveRight, onRotate, onHardDrop, onSoftDropStart, onSoftDropStop, onPause, canPerformAction]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -160,10 +182,14 @@ export function useGamepadControls({
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (softDropActiveRef.current) {
+        softDropActiveRef.current = false;
+        onSoftDropStop();
+      }
       window.removeEventListener('gamepadconnected', handleGamepadConnected);
       window.removeEventListener('gamepaddisconnected', handleGamepadDisconnected);
     };
-  }, [enabled, pollGamepad]);
+  }, [enabled, pollGamepad, onSoftDropStop]);
 
   return null;
 }

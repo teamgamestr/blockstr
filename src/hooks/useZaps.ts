@@ -262,25 +262,26 @@ export function useZaps(
         throw new Error('Could not find a Nostr zap endpoint for this recipient.');
       }
 
-      // Create zap request - use appropriate event format based on kind
-      // For addressable events (30000-39999), pass the object to get 'a' tag
-      // For replaceable/profile events (kind 0), omit the event to avoid invalid 'e' tags
-      let event: string | Event | null = null;
-      if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
-        event = actualTarget;
-      } else if (actualTarget.kind !== 0) {
-        event = actualTarget.id;
-      }
-
+      // Create zap request - use appropriate event format based on kind.
+      // Profile zaps (kind 0) carry no event at all. Every other target names the
+      // event being zapped: nostr-tools derives the `e` tag from its id, an `a`
+      // tag for addressable kinds, and the `k` tag from its kind. The event object
+      // is what the library wants - an id string is rejected outright.
       const zapAmount = amount * 1000; // convert to millisats
 
-      const zapRequest = nip57.makeZapRequest({
-        profile: actualTarget.pubkey,
-        event,
-        amount: zapAmount,
-        relays: PAYMENT_RELAYS,
-        comment,
-      });
+      const zapRequest = actualTarget.kind === 0
+        ? nip57.makeZapRequest({
+            pubkey: actualTarget.pubkey,
+            amount: zapAmount,
+            relays: PAYMENT_RELAYS,
+            comment,
+          })
+        : nip57.makeZapRequest({
+            event: actualTarget,
+            amount: zapAmount,
+            relays: PAYMENT_RELAYS,
+            comment,
+          });
 
       // Sign the zap request (but don't publish to relays - only send to LNURL endpoint)
       if (!user.signer) {

@@ -1,0 +1,45 @@
+name: Test
+
+# Nostr CI copy of .github/workflows/test.yml, executed by an ngit-ci
+# coordinator through act. It lives in .ngit/act/workflows/ so the GitHub
+# mirror keeps running its own file unchanged: workflows under .github/ are
+# detected by the coordinator but never executed.
+#
+# Differences from the GitHub copy:
+#   - targets `master`, which is the repository's actual default branch (the
+#     GitHub copy filters on `main` and so has never fired on a push)
+#   - no `cache: npm` on setup-node: the act runtime provides no GITHUB_TOKEN,
+#     and the action's cache API needs one. The step below cleans node_modules
+#     and package-lock.json before installing, so caching is a nice-to-have.
+#
+# Runtime notes: jobs run in act's catthehacker/ubuntu images, Linux only, and
+# actions/checkout is required because the coordinator copies the workspace
+# through the Docker API.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Run tests
+        run: npm run test

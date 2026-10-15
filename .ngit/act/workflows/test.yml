@@ -9,8 +9,16 @@ name: Test
 #   - targets `master`, which is the repository's actual default branch (the
 #     GitHub copy filters on `main` and so has never fired on a push)
 #   - no `cache: npm` on setup-node: the act runtime provides no GITHUB_TOKEN,
-#     and the action's cache API needs one. The step below cleans node_modules
-#     and package-lock.json before installing, so caching is a nice-to-have.
+#     and the action's cache API needs one.
+#   - installs with `npm ci` from the committed lockfile. The step this replaced
+#     deleted package-lock.json and ran `npm install`, so every run resolved the
+#     newest matching dependency - which is how a nostr-tools release silently
+#     broke the build (its makeZapRequest signature changed under us). A
+#     dependency bump is now a reviewed commit, not a surprise.
+#
+#   - runs the gates as separate steps (typecheck, lint, unit tests, build)
+#     rather than one `npm run test`, so a failure says which gate failed and
+#     the steps after it still report.
 #
 # Runtime notes: jobs run in act's catthehacker/ubuntu images, Linux only, and
 # actions/checkout is required because the coordinator copies the workspace
@@ -36,10 +44,17 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Clean install dependencies
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install
+      - name: Install dependencies from the committed lockfile
+        run: npm ci
 
-      - name: Run tests
-        run: npm run test
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Lint
+        run: npx eslint
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build
+        run: npx vite build

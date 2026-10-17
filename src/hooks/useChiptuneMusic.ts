@@ -1,268 +1,126 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-interface TrackFilter {
-  type: BiquadFilterType;
-  frequency: number;
-  Q?: number;
-}
-
-interface TrackNote {
-  freq: number;
-  duration: number;
-  type?: OscillatorType;
-  volume?: number;
-  rest?: boolean;
-  detune?: number;
-  filter?: TrackFilter;
-}
-
-const NOTE = {
-  D2: 73.42,
-  E2: 82.41,
-  F2: 87.31,
-  G2: 98.0,
-  A2: 110.0,
-  B2: 123.47,
-  C3: 130.81,
-  D3: 146.83,
-  E3: 164.81,
-  F3: 174.61,
-  G3: 196.0,
-  A3: 220.0,
-  B3: 246.94,
-  C4: 261.63,
-  D4: 293.66,
-  E4: 329.63,
-  F4: 349.23,
-  G4: 392.0,
-  A4: 440.0,
-  B4: 493.88,
-  C5: 523.25,
-  D5: 587.33,
-  E5: 659.25,
-  F5: 698.46,
-  G5: 783.99,
-  A5: 880.0,
-} as const;
-
-const BASE_BEAT = 0.25; // seconds per step (~144 BPM)
-const LOOP_DURATION = 16 * BASE_BEAT; // 4 seconds per loop across all layers
-
-const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
-
-const createTrack = (
-  frequencies: (number | null)[],
-  duration: number,
-  options: Partial<Omit<TrackNote, 'freq' | 'duration'>> = {},
-): TrackNote[] =>
-  frequencies.map((freq) => ({
-    freq: freq ?? 0,
-    duration,
-    type: options.type ?? 'square',
-    volume: options.volume ?? 0.5,
-    rest: !freq || freq <= 0,
-    detune: options.detune,
-    filter: options.filter,
-  }));
-
-const humanizeTrack = (
-  base: TrackNote[],
-  {
-    detuneRange = 4,
-    volumeJitter = 0.1,
-    filterJitter = 0.05,
-    dropout = 0,
-  }: {
-    detuneRange?: number;
-    volumeJitter?: number;
-    filterJitter?: number;
-    dropout?: number;
-  } = {},
-): TrackNote[] =>
-  base.map((note) => {
-    if (note.rest) return note;
-
-    if (dropout > 0 && Math.random() < dropout) {
-      return { ...note, rest: true, volume: 0 };
-    }
-
-    const detuneOffset = (Math.random() - 0.5) * detuneRange;
-    const volumeScale = 1 + (Math.random() - 0.5) * volumeJitter;
-    const filter = note.filter
-      ? {
-          ...note.filter,
-          frequency: note.filter.frequency * (1 + (Math.random() - 0.5) * filterJitter),
-        }
-      : undefined;
-
-    return {
-      ...note,
-      detune: (note.detune ?? 0) + detuneOffset,
-      volume: Math.max(0, (note.volume ?? 0.5) * volumeScale),
-      filter,
-    };
-  });
-
-const pickPattern = <T,>(patterns: T[]): T => patterns[Math.floor(Math.random() * patterns.length)];
-
-const neonLeadPatterns = [
-  [NOTE.A4, NOTE.C5, NOTE.E5, NOTE.D5, NOTE.C5, NOTE.A4, NOTE.G4, NOTE.E4, NOTE.A4, NOTE.C5, NOTE.G4, NOTE.D5, NOTE.F4, NOTE.E4, NOTE.D4, NOTE.C4],
-  [NOTE.E5, NOTE.D5, NOTE.C5, NOTE.A4, NOTE.G4, NOTE.A4, NOTE.C5, NOTE.D5, NOTE.E5, NOTE.G5, NOTE.A5, NOTE.F5, NOTE.E5, NOTE.D5, NOTE.C5, NOTE.B4],
-  [NOTE.A4, NOTE.A4, NOTE.C5, NOTE.E5, NOTE.D5, NOTE.B4, NOTE.C5, NOTE.G4, NOTE.A4, NOTE.D5, NOTE.C5, NOTE.A4, NOTE.G4, NOTE.F4, NOTE.E4, NOTE.D4],
-];
-
-const pulseArpPatterns = [
-  [NOTE.A4, NOTE.E5, NOTE.C5, NOTE.G4, NOTE.A4, NOTE.E5, NOTE.C5, NOTE.G4, NOTE.B3, NOTE.F4, NOTE.D5, NOTE.A4, NOTE.B3, NOTE.F4, NOTE.D5, NOTE.A4],
-  [NOTE.C4, NOTE.G4, NOTE.E5, NOTE.B4, NOTE.C4, NOTE.G4, NOTE.E5, NOTE.B4, NOTE.A3, NOTE.E4, NOTE.C5, NOTE.G4, NOTE.A3, NOTE.E4, NOTE.C5, NOTE.G4],
-];
-
-const bassPatterns = [
-  [NOTE.A2, null, NOTE.E2, null, NOTE.C3, null, NOTE.E2, null, NOTE.F2, null, NOTE.C3, null, NOTE.G2, null, NOTE.D2, null],
-  [NOTE.D2, null, NOTE.A2, null, NOTE.F2, null, NOTE.A2, null, NOTE.C3, null, NOTE.G2, null, NOTE.E2, null, NOTE.B2, null],
-];
-
-const padPatterns = [
-  [NOTE.A3, NOTE.A3, NOTE.E3, NOTE.E3, NOTE.D3, NOTE.D3, NOTE.G3, NOTE.G3],
-  [NOTE.C3, NOTE.C3, NOTE.G3, NOTE.G3, NOTE.F3, NOTE.F3, NOTE.A3, NOTE.A3],
-];
-
-const percPatterns = [
-  [2300, null, 2100, null, 2500, null, 2300, null, 2600, 2000, 2700, 2100, 2400, 0, 0, 0],
-  [2200, null, 0, null, 2400, null, 2300, null, 2200, null, 2500, 1800, 2600, null, 2400, null],
-];
-
-const buildNeonLead = () =>
-  humanizeTrack(
-    createTrack(pickPattern(neonLeadPatterns), BASE_BEAT, {
-      type: 'sawtooth',
-      volume: randomBetween(0.55, 0.65),
-      filter: { type: 'bandpass', frequency: randomBetween(1800, 2300), Q: randomBetween(1.1, 1.5) },
-    }),
-    {
-      detuneRange: 8,
-      volumeJitter: 0.2,
-      filterJitter: 0.15,
-      dropout: 0.05,
-    },
-  );
-
-const buildPulseArp = () =>
-  humanizeTrack(
-    createTrack(pickPattern(pulseArpPatterns), BASE_BEAT / 2, {
-      type: 'square',
-      volume: randomBetween(0.32, 0.4),
-      detune: randomBetween(4, 8),
-      filter: { type: 'highpass', frequency: randomBetween(1300, 1800), Q: randomBetween(0.9, 1.3) },
-    }),
-    {
-      detuneRange: 10,
-      volumeJitter: 0.25,
-      filterJitter: 0.2,
-      dropout: 0.08,
-    },
-  );
-
-const buildSubBass = () =>
-  humanizeTrack(
-    createTrack(pickPattern(bassPatterns), BASE_BEAT, {
-      type: 'triangle',
-      volume: randomBetween(0.38, 0.46),
-      filter: { type: 'lowpass', frequency: randomBetween(260, 360), Q: randomBetween(0.6, 0.85) },
-    }),
-    {
-      detuneRange: 3,
-      volumeJitter: 0.1,
-      filterJitter: 0.1,
-    },
-  );
-
-const buildTronPad = () =>
-  humanizeTrack(
-    createTrack(pickPattern(padPatterns), BASE_BEAT * 2, {
-      type: 'sine',
-      volume: randomBetween(0.18, 0.24),
-      detune: randomBetween(-12, -6),
-      filter: { type: 'lowpass', frequency: randomBetween(500, 650), Q: randomBetween(0.5, 0.7) },
-    }),
-    {
-      detuneRange: 4,
-      volumeJitter: 0.05,
-      filterJitter: 0.1,
-    },
-  );
-
-const buildGlitchPerc = () =>
-  humanizeTrack(
-    createTrack(pickPattern(percPatterns), BASE_BEAT / 2, {
-      type: 'square',
-      volume: randomBetween(0.18, 0.25),
-      filter: { type: 'highpass', frequency: randomBetween(1800, 2300), Q: randomBetween(0.7, 1) },
-    }),
-    {
-      detuneRange: 20,
-      volumeJitter: 0.4,
-      filterJitter: 0.3,
-      dropout: 0.15,
-    },
-  );
-
-const trackFactories = [buildNeonLead, buildPulseArp, buildSubBass, buildTronPad, buildGlitchPerc];
+import {
+  DRUMS,
+  STEP_SECONDS,
+  THEME_PASSES,
+  VOICES,
+  type ThemeDrum,
+  type ThemeNote,
+} from '@/lib/tetrisTheme';
 
 const AUDIO_AVAILABLE =
   typeof window !== 'undefined' &&
   (typeof window.AudioContext !== 'undefined' ||
     typeof (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext !== 'undefined');
 
-function scheduleTrack(
+/** How far ahead of the clock a pass is queued, in seconds. */
+const SCHEDULE_AHEAD = 0.15;
+
+/**
+ * The theme moves in 16th-note runs, so it takes a gentler speed-up than the old
+ * four-second loop did: the game's level multiplier reaches 2.4 at the top end,
+ * and that maps onto ~1.7x here.
+ */
+const tempoFactorFrom = (multiplier: number) =>
+  Math.min(1.7, 1 + (Math.max(0.5, multiplier) - 1) * 0.5);
+
+/** White noise, reused by every snare and hat hit. */
+function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
+  const length = Math.max(1, Math.floor(ctx.sampleRate * 0.5));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+}
+
+function scheduleNote(
   ctx: AudioContext,
-  masterGain: GainNode,
-  track: TrackNote[],
+  master: GainNode,
+  note: ThemeNote,
   startTime: number,
-  tempo: number,
+  stepSeconds: number,
 ) {
-  let cursor = startTime;
-  const tempoSafe = Math.max(0.5, tempo);
+  const spec = VOICES[note.voice];
+  const duration = Math.max(0.03, note.steps * stepSeconds);
 
-  track.forEach((note) => {
-    const effectiveDuration = Math.max(0.04, note.duration / tempoSafe);
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
 
-    if (!note.rest && note.freq > 0) {
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      const filterConfig = note.filter;
-      const filterNode = filterConfig ? ctx.createBiquadFilter() : null;
+  oscillator.type = spec.waveform;
+  oscillator.frequency.value = note.freq;
+  if (spec.detune) {
+    oscillator.detune.value = spec.detune + (Math.random() - 0.5) * 4;
+  }
 
-      oscillator.type = note.type ?? 'square';
-      oscillator.frequency.value = note.freq;
-      if (note.detune) {
-        oscillator.detune.value = note.detune;
-      }
+  const peak = spec.gain * (0.94 + Math.random() * 0.12);
+  const attack = Math.min(spec.attack, duration * 0.3);
+  const release = Math.min(spec.release, duration * 0.5);
+  const releaseStart = Math.max(startTime + attack, startTime + duration - release);
 
-      const peakVolume = note.volume ?? 0.5;
-      const attack = Math.min(0.02, effectiveDuration * 0.3);
-      const releaseStart = cursor + Math.max(attack + 0.01, effectiveDuration - 0.02);
+  gainNode.gain.setValueAtTime(0.0001, startTime);
+  gainNode.gain.linearRampToValueAtTime(peak, startTime + attack);
+  gainNode.gain.setValueAtTime(peak, releaseStart);
+  gainNode.gain.linearRampToValueAtTime(0.0001, startTime + duration);
 
-      gainNode.gain.setValueAtTime(0.0001, cursor);
-      gainNode.gain.linearRampToValueAtTime(peakVolume, cursor + attack);
-      gainNode.gain.linearRampToValueAtTime(0.0001, releaseStart);
+  let tail: AudioNode = oscillator;
+  if (spec.filter) {
+    const filterNode = ctx.createBiquadFilter();
+    filterNode.type = spec.filter.type;
+    filterNode.frequency.value = spec.filter.frequency;
+    filterNode.Q.value = spec.filter.Q;
+    tail.connect(filterNode);
+    tail = filterNode;
+  }
+  tail.connect(gainNode);
+  gainNode.connect(master);
 
-      if (filterNode && filterConfig) {
-        filterNode.type = filterConfig.type;
-        filterNode.frequency.value = filterConfig.frequency;
-        filterNode.Q.value = filterConfig.Q ?? 0.7;
-        oscillator.connect(filterNode);
-        filterNode.connect(gainNode);
-      } else {
-        oscillator.connect(gainNode);
-      }
-      gainNode.connect(masterGain);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration + 0.03);
+}
 
-      oscillator.start(cursor);
-      oscillator.stop(cursor + effectiveDuration + 0.05);
-    }
+function scheduleDrum(
+  ctx: AudioContext,
+  master: GainNode,
+  hit: ThemeDrum,
+  startTime: number,
+  noiseBuffer: AudioBuffer,
+) {
+  const spec = DRUMS[hit.drum];
+  const gainNode = ctx.createGain();
+  gainNode.gain.setValueAtTime(spec.gain, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.0005, startTime + spec.decay);
+  gainNode.connect(master);
 
-    cursor += effectiveDuration;
-  });
+  if (spec.sweep) {
+    const oscillator = ctx.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(spec.sweep.from, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(spec.sweep.to, startTime + spec.decay);
+    oscillator.connect(gainNode);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + spec.decay + 0.02);
+    return;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = noiseBuffer;
+
+  if (spec.filter) {
+    const filterNode = ctx.createBiquadFilter();
+    filterNode.type = spec.filter.type;
+    filterNode.frequency.value = spec.filter.frequency;
+    filterNode.Q.value = spec.filter.Q;
+    source.connect(filterNode);
+    filterNode.connect(gainNode);
+  } else {
+    source.connect(gainNode);
+  }
+
+  source.start(startTime);
+  source.stop(startTime + spec.decay + 0.02);
 }
 
 export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
@@ -273,17 +131,19 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
 
   const ctxRef = useRef<AudioContext | null>(null);
   const gainRef = useRef<GainNode | null>(null);
+  const noiseBufferRef = useRef<AudioBuffer | null>(null);
   const loopTimerRef = useRef<number>();
   const fadeTimerRef = useRef<number>();
   const isPlayingRef = useRef(false);
-  const tempoTargetRef = useRef(Math.max(0.5, tempoMultiplier));
-  const tempoCurrentRef = useRef(Math.max(0.5, tempoMultiplier));
+  const passIndexRef = useRef(0);
+  const tempoTargetRef = useRef(tempoFactorFrom(tempoMultiplier));
+  const tempoCurrentRef = useRef(tempoFactorFrom(tempoMultiplier));
+  const scheduleLoopRef = useRef<(startAt?: number) => void>(() => {});
 
   const smoothTempo = useCallback(() => {
     const target = tempoTargetRef.current;
     const current = tempoCurrentRef.current;
-    const next = current + (target - current) * 0.35;
-    tempoCurrentRef.current = Math.max(0.5, next);
+    tempoCurrentRef.current = Math.max(0.5, current + (target - current) * 0.35);
     return tempoCurrentRef.current;
   }, []);
 
@@ -322,6 +182,7 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
       ctxRef.current = null;
     }
     gainRef.current = null;
+    noiseBufferRef.current = null;
   }, [clearLoop, clearFadeTimer, fadeMaster]);
 
   const createContext = useCallback(() => {
@@ -342,26 +203,45 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
   }, [audioSupported]);
 
   const scheduleLoop = useCallback(
-    (forceImmediate = false) => {
+    (startAt?: number) => {
       const ctx = ctxRef.current;
       const master = gainRef.current;
       if (!ctx || !master) return;
 
       const tempo = smoothTempo();
-      const startTime = ctx.currentTime + (forceImmediate ? 0.02 : 0.05);
-      const activeTracks = trackFactories.map((factory) => factory());
-      activeTracks.forEach((track) => scheduleTrack(ctx, master, track, startTime, tempo));
+      const stepSeconds = STEP_SECONDS / tempo;
+      const pass = THEME_PASSES[passIndexRef.current % THEME_PASSES.length];
+      passIndexRef.current += 1;
 
-      const loopSeconds = LOOP_DURATION / tempo;
-      const loopMs = Math.max(200, (loopSeconds - 0.05) * 1000);
+      let noise = noiseBufferRef.current;
+      if (!noise) {
+        noise = createNoiseBuffer(ctx);
+        noiseBufferRef.current = noise;
+      }
+
+      const start = startAt ?? ctx.currentTime + 0.06;
+      pass.notes.forEach((note) => {
+        scheduleNote(ctx, master, note, start + note.step * stepSeconds, stepSeconds);
+      });
+      pass.drums.forEach((hit) => {
+        scheduleDrum(ctx, master, hit, start + hit.step * stepSeconds, noise as AudioBuffer);
+      });
+
+      const nextStart = start + pass.steps * stepSeconds;
+      const delayMs = Math.max(80, (nextStart - ctx.currentTime - SCHEDULE_AHEAD) * 1000);
+
       loopTimerRef.current = window.setTimeout(() => {
         if (isPlayingRef.current) {
-          scheduleLoop();
+          scheduleLoopRef.current(nextStart);
         }
-      }, loopMs);
+      }, delayMs);
     },
     [smoothTempo],
   );
+
+  useEffect(() => {
+    scheduleLoopRef.current = scheduleLoop;
+  }, [scheduleLoop]);
 
   const play = useCallback(async () => {
     if (!audioSupported) return;
@@ -386,8 +266,10 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
 
     isPlayingRef.current = true;
     setIsPlaying(true);
-    scheduleLoop(true);
-    fadeMaster(volume, 0.4);
+    passIndexRef.current = 0;
+    tempoCurrentRef.current = tempoTargetRef.current;
+    scheduleLoop(ctx.currentTime + 0.2);
+    fadeMaster(volume, 0.18);
   }, [audioSupported, createContext, scheduleLoop, fadeMaster, volume]);
 
   const toggle = useCallback(async () => {
@@ -412,18 +294,11 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
     stop();
   }, [stop, clearFadeTimer]);
 
+  // A difficulty bump retunes the tempo for the next lap rather than cutting the
+  // current one short, so the theme speeds up between passes instead of glitching.
   useEffect(() => {
-    tempoTargetRef.current = Math.max(0.5, tempoMultiplier);
-    if (isPlayingRef.current) {
-      fadeMaster(0.0005, 0.08);
-      clearLoop();
-      scheduleLoop(true);
-      clearFadeTimer();
-      fadeTimerRef.current = window.setTimeout(() => {
-        fadeMaster(volume, 0.35);
-      }, 90);
-    }
-  }, [tempoMultiplier, fadeMaster, scheduleLoop, clearLoop, clearFadeTimer, volume]);
+    tempoTargetRef.current = tempoFactorFrom(tempoMultiplier);
+  }, [tempoMultiplier]);
 
   return useMemo(
     () => ({

@@ -8,7 +8,7 @@ import type { Event } from 'nostr-tools';
 import type { WebLNProvider } from 'webln';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { NSchema as n, type NostrEvent } from '@nostrify/nostrify';
 import { PAYMENT_RELAYS } from '@/lib/paymentRelays';
 
 type ZapResult = {
@@ -237,6 +237,36 @@ export function useZaps(
           authorData = refreshed.data ?? authorData;
         } catch (err) {
           console.warn('Failed to refetch author metadata before zapping:', err);
+        }
+      }
+
+      // The app's read relays do not necessarily carry the recipient's profile.
+      // The Blockstr account's kind 0 lives on the profile relays that
+      // PAYMENT_RELAYS already lists for zap receipts (purplepag.es,
+      // relay.nostr.band), so paying to play failed with "could not load zap
+      // recipient profile" even though the profile — and its lightning address —
+      // are published. Look there before giving up.
+      if (!authorData || !authorData.metadata || !authorData.event) {
+        try {
+          const [profileEvent] = await nostr
+            .group(PAYMENT_RELAYS)
+            .query(
+              [{ kinds: [0], authors: [actualTarget.pubkey], limit: 1 }],
+              { signal: AbortSignal.timeout(5000) },
+            );
+
+          if (profileEvent) {
+            try {
+              authorData = {
+                event: profileEvent,
+                metadata: n.json().pipe(n.metadata()).parse(profileEvent.content),
+              };
+            } catch {
+              authorData = { event: profileEvent };
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load the recipient profile from the payment relays:', err);
         }
       }
 

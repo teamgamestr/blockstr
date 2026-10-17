@@ -94,7 +94,7 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
       return;
     }
 
-    if (!musicEnabled || !hasStarted) {
+    if (!musicEnabled) {
       stopMusic();
       return;
     }
@@ -251,13 +251,13 @@ export function BlockstrGame({ className }: BlockstrGameProps) {
         return next;
       }
 
-      if (hasStarted) {
-        playMusic().catch(() => setMusicEnabled(false));
-      }
+      // The theme runs from page load, so re-enabling it does not depend on a game
+      // being in progress.
+      playMusic().catch(() => setMusicEnabled(false));
 
       return next;
     });
-  }, [hasStarted, playMusic, stopMusic]);
+  }, [playMusic, stopMusic]);
 
   const gameDuration = gameStartTime > 0 ? Date.now() - gameStartTime : 0;
 

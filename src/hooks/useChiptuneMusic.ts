@@ -139,6 +139,8 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
   const tempoTargetRef = useRef(tempoFactorFrom(tempoMultiplier));
   const tempoCurrentRef = useRef(tempoFactorFrom(tempoMultiplier));
   const scheduleLoopRef = useRef<(startAt?: number) => void>(() => {});
+  const gestureCleanupRef = useRef<(() => void) | null>(null);
+  const kickOffRef = useRef<() => void>(() => {});
 
   const smoothTempo = useCallback(() => {
     const target = tempoTargetRef.current;
@@ -170,7 +172,13 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
     }
   }, []);
 
+  const disarmGestureRetry = useCallback(() => {
+    gestureCleanupRef.current?.();
+    gestureCleanupRef.current = null;
+  }, []);
+
   const stop = useCallback(() => {
+    disarmGestureRetry();
     clearLoop();
     clearFadeTimer();
     isPlayingRef.current = false;
@@ -183,7 +191,7 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
     }
     gainRef.current = null;
     noiseBufferRef.current = null;
-  }, [clearLoop, clearFadeTimer, fadeMaster]);
+  }, [clearLoop, clearFadeTimer, fadeMaster, disarmGestureRetry]);
 
   const createContext = useCallback(() => {
     if (!audioSupported || typeof window === 'undefined') return null;
@@ -243,26 +251,45 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
     scheduleLoopRef.current = scheduleLoop;
   }, [scheduleLoop]);
 
-  const play = useCallback(async () => {
-    if (!audioSupported) return;
-    if (isPlayingRef.current) return;
+  /**
+   * `resume()` can sit pending indefinitely while the page has no user activation,
+   * so race it against a short timeout instead of awaiting it blindly.
+   */
+  const waitForRunning = useCallback(async (ctx: AudioContext, timeoutMs = 500) => {
+    const isRunning = () => ctx.state === 'running';
+    if (isRunning()) return true;
 
-    let ctx = ctxRef.current;
-    if (!ctx) {
-      ctx = createContext();
-    }
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const timer = window.setTimeout(finish, timeoutMs);
 
+      ctx.addEventListener('statechange', () => {
+        if (isRunning()) finish();
+      });
+      ctx.resume().then(finish).catch(finish);
+    });
+
+    return isRunning();
+  }, []);
+
+  const startPlayback = useCallback(async () => {
+    if (!audioSupported) return false;
+
+    const ctx = ctxRef.current ?? createContext();
     const master = gainRef.current;
-    if (!ctx || !master) return;
+    if (!ctx || !master) return false;
 
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch (error) {
-        console.error('[Chiptune] Failed to resume AudioContext', error);
-        return;
-      }
-    }
+    const running = await waitForRunning(ctx);
+
+    // A context created before the page has had a gesture stays suspended, so
+    // report failure rather than pretending the theme is playing.
+    if (!running) return false;
 
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -270,7 +297,63 @@ export function useChiptuneMusic(initialVolume = 0.18, tempoMultiplier = 1) {
     tempoCurrentRef.current = tempoTargetRef.current;
     scheduleLoop(ctx.currentTime + 0.2);
     fadeMaster(volume, 0.18);
-  }, [audioSupported, createContext, scheduleLoop, fadeMaster, volume]);
+    return true;
+  }, [audioSupported, createContext, scheduleLoop, fadeMaster, volume, waitForRunning]);
+
+  /**
+   * Autoplay policy: the theme can be requested as soon as the page loads, but the
+   * browser will not let it sound until the visitor interacts. Wait for that first
+   * real click or keypress instead of leaving the game silent.
+   */
+  const armGestureRetry = useCallback(() => {
+    if (gestureCleanupRef.current || typeof window === 'undefined') return;
+
+    const onGesture = () => {
+      disarmGestureRetry();
+      kickOffRef.current();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // A modifier on its own does not grant the activation audio needs.
+      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) return;
+      onGesture();
+    };
+
+    window.addEventListener('pointerdown', onGesture, { passive: true });
+    window.addEventListener('touchstart', onGesture, { passive: true });
+    window.addEventListener('keydown', onKeyDown);
+
+    gestureCleanupRef.current = () => {
+      window.removeEventListener('pointerdown', onGesture);
+      window.removeEventListener('touchstart', onGesture);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [disarmGestureRetry]);
+
+  /**
+   * Try to start, and if the browser still refuses, keep waiting for the next
+   * gesture — a first press that fails must not leave the theme silent for good.
+   */
+  const kickOff = useCallback(() => {
+    void startPlayback().then((started) => {
+      if (!started) armGestureRetry();
+    });
+  }, [startPlayback, armGestureRetry]);
+
+  useEffect(() => {
+    kickOffRef.current = kickOff;
+  }, [kickOff]);
+
+  const play = useCallback(async () => {
+    if (!audioSupported) return;
+    if (isPlayingRef.current) return;
+
+    disarmGestureRetry();
+    const started = await startPlayback();
+    if (!started) {
+      armGestureRetry();
+    }
+  }, [audioSupported, startPlayback, disarmGestureRetry, armGestureRetry]);
 
   const toggle = useCallback(async () => {
     if (isPlayingRef.current) {

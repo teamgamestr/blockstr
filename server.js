@@ -123,6 +123,8 @@ app.post('/api/sign-score', async (req, res) => {
         ["d", sessionId],
         ["p", playerPubkey],
         ["game", "blockstr"],
+        ["i", "https://blockstr.io"],
+        ["k", "web"],
         ["score", score.toString()],
         ["state", "final"],
         ["difficulty", difficulty],

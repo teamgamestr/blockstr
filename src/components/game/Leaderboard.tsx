@@ -60,15 +60,26 @@ export function Leaderboard({ className }: { className?: string }) {
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
+      // Query by the NIP-73 "i" identity (relay-indexable everywhere), plus an
+      // author fallback so scores published before the i/k tags existed still load.
       const events = await nostr.query([
         {
           kinds: [30762],
-          "#game": [gameConfig.gameId],
+          "#i": [gameConfig.gameUrl],
+          limit: 100
+        },
+        {
+          kinds: [30762],
+          authors: [gameConfig.blockstrPubkey],
           limit: 100
         }
       ], { signal });
 
-      const scores: ScoreEvent[] = events
+      const byId = new Map<string, (typeof events)[number]>();
+      for (const event of events) byId.set(event.id, event);
+      const unique = [...byId.values()];
+
+      const scores: ScoreEvent[] = unique
         .map(event => {
           const scoreTag = event.tags.find(tag => tag[0] === 'score');
           const playerTag = event.tags.find(tag => tag[0] === 'p');

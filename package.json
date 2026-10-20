@@ -7,7 +7,7 @@
     "dev": "concurrently --kill-others --names \"API,VITE\" --prefix-colors \"blue,green\" --prefix \"[{name}]\" --raw \"node server.js\" \"vite\"",
     "dev:vite": "vite",
     "dev:server": "node server.js",
-    "build": "vite build && cp dist/index.html dist/404.html",
+    "build": "sh scripts/build-atomic.sh",
     "start": "node server.js",
     "test": "npm ci && tsc -p tsconfig.app.json --noEmit && eslint && vitest run && vite build",
     "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
